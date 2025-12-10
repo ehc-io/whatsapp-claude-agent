@@ -1,3 +1,12 @@
+## [1.3.0](https://github.com/dsebastien/whatsapp-claude-agent/compare/1.2.0...1.3.0) (2025-12-10)
+
+### Features
+
+* **all:** add hostname to the pseudo-random agent names ([3c0dce8](https://github.com/dsebastien/whatsapp-claude-agent/commit/3c0dce8efc0c86c75e86a10019c198116c16056b))
+* **all:** added configuration init/read/write through the CLI ([f5bb158](https://github.com/dsebastien/whatsapp-claude-agent/commit/f5bb158f33cab792d46aa21f27e65d19476b9e06))
+* **all:** enable defining an agent name or set one randomly at startup ([77072e7](https://github.com/dsebastien/whatsapp-claude-agent/commit/77072e7b39459f42793042f1f03199730f58dc46))
+* **all:** enable showing and updating the configuration from WhatsApp ([37c56a5](https://github.com/dsebastien/whatsapp-claude-agent/commit/37c56a55f7aacf35e5f9905f29d9feaaaa9ce432))
+* **all:** start a new session after changing the system prompt ([26191bc](https://github.com/dsebastien/whatsapp-claude-agent/commit/26191bcd213034067b85e9aeb119cc713040da8b))
 ## [1.2.0](https://github.com/dsebastien/whatsapp-claude-agent/compare/1.1.1...1.2.0) (2025-12-10)
 
 ### Features
