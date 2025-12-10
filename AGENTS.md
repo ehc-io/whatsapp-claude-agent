@@ -1,3 +1,14 @@
+## Project Documentation
+
+**MUST READ** before working on this codebase:
+
+- `documentation/architecture.md` — system overview, components, directory structure
+- `documentation/commands.md` — WhatsApp slash commands reference
+- `documentation/configuration.md` — config schema, CLI mapping, save/load
+- `documentation/message-flow.md` — message pipeline, Claude queries, permissions
+
+**MUST UPDATE** documentation when making changes. Keep it terse, accurate, no fluff.
+
 ## Development Workflow
 
 When starting work on this codebase, ALWAYS run these watch commands in the background:
