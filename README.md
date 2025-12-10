@@ -376,10 +376,9 @@ These align with the [Claude Agent SDK permission modes](https://docs.anthropic.
 
 ## Configuration File
 
-You can create a config file in two locations:
+Create a config file in the working directory: `./.whatsapp-claude-agent.json`
 
-1. **Working directory** (recommended): `./.whatsapp-claude-agent.json` - used by `/config` WhatsApp commands
-2. **Home directory**: `~/.whatsapp-claude-agent/.whatsapp-claude-agent.json` - loaded at startup if no `-c` option specified
+This file is used by `/config` WhatsApp commands and loaded at startup if no `-c` option is specified.
 
 Example configuration:
 
@@ -459,7 +458,7 @@ whatsapp-claude-agent config -d /path/to/project show
 
 ## Security Considerations
 
-1. **Whitelist enforcement**: Only numbers in the whitelist can interact with the agent
+1. **Whitelist enforcement**: Only numbers in the whitelist can interact with the agent (unless running in group mode with `--allow-all-group-participants`)
 2. **Session security**: WhatsApp credentials are stored locally - keep them safe
 3. **Permission modes**: Default to `default` mode for safety - avoid `bypassPermissions` unless necessary
 4. **Rate limiting**: Be aware of WhatsApp's rate limits (~1000-2000 msgs/day)
