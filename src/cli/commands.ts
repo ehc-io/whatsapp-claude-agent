@@ -68,6 +68,10 @@ Examples:
             'When resuming, fork the session instead of continuing it (creates a new session ID)',
             false
         )
+        .option(
+            '--agent-name <name>',
+            'Agent identity name used to prefix messages (default: {directory}-{random-superhero})'
+        )
 
     return program
 }

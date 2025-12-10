@@ -13,6 +13,7 @@ import { initAuthState, type AuthState } from './auth.ts'
 import { chunkMessage } from './chunker.ts'
 import { parseMessage, isWithinThreshold } from './messages.ts'
 import { isWhitelisted, isGroupJid } from '../utils/phone.ts'
+import { formatMessageWithAgentName } from '../utils/agent-name.ts'
 import type { Logger } from '../utils/logger.ts'
 import type { Config, AgentEvent } from '../types.ts'
 
@@ -186,7 +187,9 @@ export class WhatsAppClient extends EventEmitter {
             throw new Error('WhatsApp client not ready')
         }
 
-        const chunks = chunkMessage(text)
+        // Prefix message with agent name
+        const prefixedText = formatMessageWithAgentName(this.config.agentName, text)
+        const chunks = chunkMessage(prefixedText)
 
         for (const chunk of chunks) {
             const result = await this.socket.sendMessage(to, { text: chunk })

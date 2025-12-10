@@ -147,6 +147,11 @@ export class SDKBackend extends ClaudeBackend {
             this.logger.debug(`Prompt length: ${fullPrompt.length} chars`)
 
             // Build options for the query
+            const systemPrompt = this.buildSystemPrompt()
+            this.logger.debug(
+                `System prompt: ${typeof systemPrompt === 'string' ? systemPrompt.slice(0, 200) : JSON.stringify(systemPrompt)}`
+            )
+
             const queryOptions: Parameters<typeof claudeQuery>[0]['options'] = {
                 pathToClaudeCodeExecutable: this.claudeCodePath,
                 cwd: this.config.directory,
@@ -154,7 +159,7 @@ export class SDKBackend extends ClaudeBackend {
                 maxTurns: this.config.maxTurns,
                 permissionMode: this.mode,
                 tools: { type: 'preset', preset: 'claude_code' },
-                systemPrompt: this.buildSystemPrompt(),
+                systemPrompt,
                 settingSources: this.config.settingSources,
                 canUseTool: async (toolName: string, input: unknown) => {
                     this.logger.info(`>>> canUseTool callback invoked: ${toolName}`)

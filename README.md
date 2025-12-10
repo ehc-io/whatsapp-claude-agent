@@ -5,8 +5,9 @@ Bridge WhatsApp with Claude Code - interact with your files via WhatsApp message
 ## Features
 
 - **Claude Agent SDK integration**: Direct integration with Claude Agent SDK
+- **Agent identity**: Customizable agent name with auto-generation (e.g., "My Project Spider Man")
 - **Permission modes**: Full SDK permission modes (default, acceptEdits, bypassPermissions, plan, dontAsk)
-- **WhatsApp commands**: Switch modes, clear history, check status
+- **WhatsApp commands**: Switch modes, clear history, check status, change agent name
 - **Message chunking**: Long responses are split into multiple messages
 - **Session persistence**: WhatsApp authentication is saved
 - **Whitelist security**: Only respond to specified phone numbers
@@ -59,6 +60,7 @@ Options:
   -m, --mode <mode>              Permission mode (see below)
   -w, --whitelist <numbers>      Comma-separated phone numbers (required)
   -s, --session <path>           WhatsApp session directory
+  --agent-name <name>            Agent name (default: auto-generated from directory + superhero)
   --model <model>                Claude model to use (supports shorthands)
   --max-turns <n>                Maximum conversation turns
   --process-missed               Process messages received while offline
@@ -117,6 +119,9 @@ The examples below use `./whatsapp-claude-agent` as a placeholder. Replace with 
 ./whatsapp-claude-agent -w "+1234567890" --model opus
 ./whatsapp-claude-agent -w "+1234567890" --model sonnet-4
 ./whatsapp-claude-agent -w "+1234567890" --model haiku
+
+# Custom agent name
+./whatsapp-claude-agent -w "+1234567890" --agent-name "My Custom Agent"
 ```
 
 ## WhatsApp Commands
@@ -137,10 +142,12 @@ Once connected, you can send these commands via WhatsApp:
 | `/cd`            | Show current working directory            |
 | `/cd <path>`     | Change working directory (clears session) |
 
-### Model Commands
+### Agent & Model Commands
 
 | Command         | Description                 |
 | --------------- | --------------------------- |
+| `/name`         | Show current agent name     |
+| `/name <name>`  | Change agent name           |
 | `/model`        | Show current model          |
 | `/model <name>` | Switch to a different model |
 | `/models`       | List all available models   |
@@ -273,6 +280,7 @@ You can create a config file at `~/.whatsapp-claude-agent/config.json`:
     "whitelist": ["+1234567890", "+0987654321"],
     "mode": "default",
     "model": "sonnet",
+    "agentName": "My Custom Agent",
     "verbose": false,
     "systemPrompt": "You are a helpful coding assistant.",
     "systemPromptAppend": "Always explain your reasoning.",
@@ -284,6 +292,7 @@ You can create a config file at `~/.whatsapp-claude-agent/config.json`:
 
 Notes:
 
+- `agentName` sets the agent identity; if omitted, auto-generates from directory name + random superhero
 - Use either `systemPrompt` (replaces default) OR `systemPromptAppend` (adds to default), not both
 - `resumeSessionId` can be set to automatically resume a specific session on startup
 - `forkSession` when `true` will fork the resumed session instead of continuing it

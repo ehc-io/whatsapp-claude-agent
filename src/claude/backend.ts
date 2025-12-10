@@ -170,6 +170,21 @@ export abstract class ClaudeBackend {
         return false // Override in subclass
     }
 
+    /**
+     * Get current agent name
+     */
+    getAgentName(): string {
+        return this.config.agentName
+    }
+
+    /**
+     * Set the agent name
+     */
+    setAgentName(name: string): void {
+        this.config.agentName = name
+        this.logger.info(`Agent name changed to: ${name}`)
+    }
+
     abstract query(prompt: string, conversationHistory?: string[]): Promise<ClaudeResponse>
     abstract stop(): Promise<void>
 }

@@ -36,7 +36,8 @@ export const ConfigSchema = z.object({
     systemPromptAppend: z.string().optional(),
     settingSources: z.array(SettingSourceSchema).optional(),
     resumeSessionId: z.string().optional(),
-    forkSession: z.boolean().default(false)
+    forkSession: z.boolean().default(false),
+    agentName: z.string() // Will be set with a default value during config parsing
 })
 
 export type Config = z.infer<typeof ConfigSchema>

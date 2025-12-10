@@ -171,6 +171,12 @@ export class ConversationManager extends EventEmitter {
                 await this.handleModelsCommand(sendResponse)
                 break
 
+            case 'name':
+            case 'agentname':
+            case 'agent-name':
+                await this.handleNameCommand(parsed.args, sendResponse)
+                break
+
             default:
                 await sendResponse(
                     `Unknown command: /${parsed.command}\n\nType /help for available commands.`
@@ -419,6 +425,30 @@ export class ConversationManager extends EventEmitter {
         )
     }
 
+    private async handleNameCommand(
+        args: string,
+        sendResponse: (text: string) => Promise<void>
+    ): Promise<void> {
+        if (!args) {
+            // Show current agent name
+            const currentName = this.backend.getAgentName()
+            await sendResponse(`🤖 Agent name: *${currentName}*`)
+            return
+        }
+
+        const newName = args.trim()
+        if (newName.length === 0) {
+            await sendResponse('❌ Agent name cannot be empty.')
+            return
+        }
+
+        // Change the agent name
+        this.backend.setAgentName(newName)
+        this.config.agentName = newName
+
+        await sendResponse(`✓ Agent name changed to: *${newName}*`)
+    }
+
     private async handleClaudeMdCommand(
         args: string,
         sendResponse: (text: string) => Promise<void>
@@ -527,7 +557,9 @@ export class ConversationManager extends EventEmitter {
 /cd <path> - Change working directory
 /help - Show this help message
 
-*Model:*
+*Agent & Model:*
+/name - Show current agent name
+/name <name> - Change agent name
 /model - Show current model
 /model <name> - Switch to a different model
 /models - List all available models
@@ -572,9 +604,10 @@ export class ConversationManager extends EventEmitter {
 
         return `*Agent Status:*
 
+🤖 Agent: *${this.config.agentName}*
 📁 Working directory: \`${this.config.directory}\`
 🔐 Mode: ${this.config.mode}
-🤖 Model: ${this.config.model}
+🧠 Model: ${this.config.model}
 🔗 Session: ${sessionStatus}
 💬 Conversation length: ${this.history.length} messages
 ⏳ Pending permissions: ${this.permissions.pendingCount}

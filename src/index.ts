@@ -21,6 +21,7 @@ async function main() {
     const logger = createLogger(config.verbose)
 
     logger.info('Starting WhatsApp Claude Agent...')
+    logger.info(`Agent name: ${config.agentName}`)
     logger.info(`Working directory: ${config.directory}`)
     logger.info(`Mode: ${config.mode}`)
     logger.info(`Whitelisted numbers: ${config.whitelist.join(', ')}`)
@@ -104,11 +105,11 @@ async function main() {
     })
 
     async function sendStartupAnnouncement() {
-        const announcement = `🤖 *WhatsApp Claude Agent Online*
+        const announcement = `Now online!
 
 📁 Working directory: \`${config.directory}\`
 🔐 Mode: ${config.mode}
-🤖 Model: ${config.model}
+🧠 Model: ${config.model}
 
 Type */help* for available commands.`
 

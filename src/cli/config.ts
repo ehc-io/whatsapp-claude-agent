@@ -3,6 +3,7 @@ import { homedir } from 'os'
 import { resolve } from 'path'
 import { ConfigSchema, type Config, type SettingSource } from '../types.ts'
 import { resolveModelShorthand } from '../claude/utils.ts'
+import { generateDefaultAgentName, normalizeAgentName } from '../utils/agent-name.ts'
 
 const CONFIG_FILE_NAME = 'config.json'
 
@@ -50,6 +51,7 @@ export interface CLIOptions {
     loadClaudeMd?: string
     resume?: string
     fork?: boolean
+    agentName?: string
 }
 
 export function parseConfig(cliOptions: CLIOptions): Config {
@@ -68,6 +70,15 @@ export function parseConfig(cliOptions: CLIOptions): Config {
             )
         }
     }
+
+    // Resolve directory early since we need it for agent name generation
+    const directory = expandPath(cliOptions.directory || fileConfig.directory || process.cwd())
+
+    // Resolve agent name: CLI option > config file > generated default
+    const agentName =
+        normalizeAgentName(cliOptions.agentName) ||
+        normalizeAgentName(fileConfig.agentName) ||
+        generateDefaultAgentName(directory)
 
     // Build merged config (CLI options override file config)
     const merged = {
@@ -94,7 +105,8 @@ export function parseConfig(cliOptions: CLIOptions): Config {
             ? (cliOptions.loadClaudeMd.split(',').map((s) => s.trim()) as SettingSource[])
             : fileConfig.settingSources,
         resumeSessionId: cliOptions.resume || fileConfig.resumeSessionId,
-        forkSession: cliOptions.fork ?? fileConfig.forkSession
+        forkSession: cliOptions.fork ?? fileConfig.forkSession,
+        agentName
     }
 
     // Filter out undefined values
