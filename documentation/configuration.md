@@ -1,5 +1,9 @@
 # Configuration
 
+## Required Options
+
+**`whitelist`** — MANDATORY. App exits if not provided via CLI (`-w`) or config file. Must contain at least one phone number.
+
 ## Sources (Priority Order)
 
 1. **CLI arguments** (highest) — override everything
