@@ -1,3 +1,10 @@
+## [1.2.0](https://github.com/dsebastien/whatsapp-claude-agent/compare/1.1.1...1.2.0) (2025-12-10)
+
+### Features
+
+* **all:** add support for listing and switching between models ([5d8f04b](https://github.com/dsebastien/whatsapp-claude-agent/commit/5d8f04bfa6a8b463d3e18a78880e984f9e4232d5))
+* **all:** added support for changing the current directory ([ef62a88](https://github.com/dsebastien/whatsapp-claude-agent/commit/ef62a8855853b0170e526c70ea3a62622d895e29))
+* **all:** hello message when the agent comes online ([540e6ca](https://github.com/dsebastien/whatsapp-claude-agent/commit/540e6ca4a67cabd65d4c582b8a7d642d835a0b78))
 ## [1.1.1](https://github.com/dsebastien/whatsapp-claude-agent/compare/1.1.0...1.1.1) (2025-12-10)
 
 ### Bug Fixes
