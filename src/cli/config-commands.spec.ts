@@ -45,7 +45,7 @@ describe('config file utilities', () => {
 
     describe('generateConfigTemplate', () => {
         test('generates valid JSON with whitelist', () => {
-            const template = generateConfigTemplate(['+1234567890'])
+            const template = generateConfigTemplate({ whitelist: ['+1234567890'] })
             const parsed = JSON.parse(template)
 
             expect(parsed.whitelist).toEqual(['+1234567890'])
@@ -55,10 +55,36 @@ describe('config file utilities', () => {
         })
 
         test('handles multiple phone numbers', () => {
-            const template = generateConfigTemplate(['+111', '+222', '+333'])
+            const template = generateConfigTemplate({ whitelist: ['+111', '+222', '+333'] })
             const parsed = JSON.parse(template)
 
             expect(parsed.whitelist).toEqual(['+111', '+222', '+333'])
+        })
+
+        test('generates config without whitelist when not provided', () => {
+            const template = generateConfigTemplate()
+            const parsed = JSON.parse(template)
+
+            expect(parsed.whitelist).toBeUndefined()
+            expect(parsed.mode).toBe('default')
+            expect(parsed.model).toBe('sonnet')
+        })
+
+        test('includes optional settings when provided', () => {
+            const template = generateConfigTemplate({
+                whitelist: ['+123'],
+                model: 'opus',
+                verbose: true,
+                agentName: 'TestAgent',
+                maxTurns: 50
+            })
+            const parsed = JSON.parse(template)
+
+            expect(parsed.whitelist).toEqual(['+123'])
+            expect(parsed.model).toBe('opus')
+            expect(parsed.verbose).toBe(true)
+            expect(parsed.agentName).toBe('TestAgent')
+            expect(parsed.maxTurns).toBe(50)
         })
     })
 
@@ -260,7 +286,7 @@ describe('config commands integration', () => {
 
     test('full workflow: init, set, get, unset', () => {
         // Init
-        const template = generateConfigTemplate(['+1234567890'])
+        const template = generateConfigTemplate({ whitelist: ['+1234567890'] })
         writeFileSync(configPath, template)
 
         // Verify init

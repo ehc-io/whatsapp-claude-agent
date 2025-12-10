@@ -583,7 +583,7 @@ export class ConversationManager extends EventEmitter {
 
         if (subcommand === 'generate' || subcommand === 'template') {
             // Generate a template config
-            const template = generateConfigTemplate(this.config.whitelist)
+            const template = generateConfigTemplate({ whitelist: this.config.whitelist })
             await sendResponse(
                 `*Config template:*\n\n\`\`\`json\n${template}\n\`\`\`\n\nSave this to:\n\`${configPath}\``
             )

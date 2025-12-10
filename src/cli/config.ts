@@ -82,18 +82,64 @@ export function saveConfigFile(config: Config, configPath?: string): string {
 }
 
 /**
+ * Options that can be passed to config init
+ */
+export interface ConfigInitOptions {
+    whitelist?: string[]
+    directory?: string
+    mode?: string
+    sessionPath?: string
+    model?: string
+    maxTurns?: number
+    processMissed?: boolean
+    missedThresholdMins?: number
+    verbose?: boolean
+    agentName?: string
+    systemPrompt?: string
+    systemPromptAppend?: string
+    settingSources?: string[]
+}
+
+/**
  * Generate a template config file content
  */
-export function generateConfigTemplate(whitelist?: string[]): string {
+export function generateConfigTemplate(options?: ConfigInitOptions): string {
     const template: Record<string, unknown> = {
-        directory: process.cwd(),
-        mode: 'default',
-        model: 'sonnet',
-        verbose: false
+        directory: options?.directory ?? process.cwd(),
+        mode: options?.mode ?? 'default',
+        model: options?.model ?? 'sonnet',
+        verbose: options?.verbose ?? false
     }
-    if (whitelist && whitelist.length > 0) {
-        template['whitelist'] = whitelist
+
+    // Add optional fields only if provided
+    if (options?.whitelist && options.whitelist.length > 0) {
+        template['whitelist'] = options.whitelist
     }
+    if (options?.sessionPath) {
+        template['sessionPath'] = options.sessionPath
+    }
+    if (options?.maxTurns !== undefined) {
+        template['maxTurns'] = options.maxTurns
+    }
+    if (options?.processMissed !== undefined) {
+        template['processMissed'] = options.processMissed
+    }
+    if (options?.missedThresholdMins !== undefined) {
+        template['missedThresholdMins'] = options.missedThresholdMins
+    }
+    if (options?.agentName) {
+        template['agentName'] = options.agentName
+    }
+    if (options?.systemPrompt) {
+        template['systemPrompt'] = options.systemPrompt
+    }
+    if (options?.systemPromptAppend) {
+        template['systemPromptAppend'] = options.systemPromptAppend
+    }
+    if (options?.settingSources && options.settingSources.length > 0) {
+        template['settingSources'] = options.settingSources
+    }
+
     return JSON.stringify(template, null, 4)
 }
 

@@ -1,6 +1,11 @@
 import { Command } from 'commander'
 import { existsSync } from 'fs'
-import { loadConfigFile, getLocalConfigPath, generateConfigTemplate } from './config.ts'
+import {
+    loadConfigFile,
+    getLocalConfigPath,
+    generateConfigTemplate,
+    type ConfigInitOptions
+} from './config.ts'
 import { ConfigSchema, type Config } from '../types.ts'
 import { resolveModelShorthand } from '../claude/utils.ts'
 
@@ -210,12 +215,23 @@ export function createConfigCommand(): Command {
 
     // config init
     config
-        .command('init [whitelist]')
-        .description(
-            'Create a new configuration file (optionally with comma-separated phone numbers)'
-        )
+        .command('init')
+        .description('Create a new configuration file')
         .option('--force', 'Overwrite existing config file')
-        .action((whitelistArg: string | undefined, options, cmd) => {
+        .option('-w, --whitelist <numbers>', 'Comma-separated phone numbers allowed to interact')
+        .option('-m, --mode <mode>', 'Permission mode')
+        .option('-s, --session <path>', 'WhatsApp session directory')
+        .option('--model <model>', 'Claude model to use')
+        .option('--max-turns <n>', 'Maximum conversation turns')
+        .option('--process-missed', 'Process messages received while offline')
+        .option('--no-process-missed', 'Ignore messages received while offline')
+        .option('--missed-threshold <mins>', 'Only process messages from last N minutes')
+        .option('-v, --verbose', 'Enable verbose logging')
+        .option('--agent-name <name>', 'Agent identity name')
+        .option('--system-prompt <prompt>', 'Custom system prompt for Claude')
+        .option('--system-prompt-append <text>', 'Text to append to the default system prompt')
+        .option('--load-claude-md <sources>', 'Comma-separated list of CLAUDE.md sources')
+        .action((options, cmd) => {
             const parentOpts = cmd.parent.opts()
             const configDir = parentOpts.directory || process.cwd()
             const configPath = parentOpts.config || getLocalConfigPath(configDir)
@@ -226,10 +242,54 @@ export function createConfigCommand(): Command {
                 process.exit(1)
             }
 
-            const whitelist = whitelistArg
-                ? whitelistArg.split(',').map((s: string) => s.trim())
-                : undefined
-            const template = generateConfigTemplate(whitelist)
+            // Build config options from CLI flags
+            const initOptions: ConfigInitOptions = {
+                directory: configDir
+            }
+
+            // Whitelist from --whitelist option
+            if (options.whitelist) {
+                initOptions.whitelist = options.whitelist.split(',').map((s: string) => s.trim())
+            }
+
+            // Optional settings from flags
+            if (options.mode) {
+                initOptions.mode = options.mode
+            }
+            if (options.session) {
+                initOptions.sessionPath = options.session
+            }
+            if (options.model) {
+                initOptions.model = resolveModelShorthand(options.model) || options.model
+            }
+            if (options.maxTurns) {
+                initOptions.maxTurns = parseInt(options.maxTurns, 10)
+            }
+            if (options.processMissed !== undefined) {
+                initOptions.processMissed = options.processMissed
+            }
+            if (options.missedThreshold) {
+                initOptions.missedThresholdMins = parseInt(options.missedThreshold, 10)
+            }
+            if (options.verbose) {
+                initOptions.verbose = options.verbose
+            }
+            if (options.agentName) {
+                initOptions.agentName = options.agentName
+            }
+            if (options.systemPrompt) {
+                initOptions.systemPrompt = options.systemPrompt
+            }
+            if (options.systemPromptAppend) {
+                initOptions.systemPromptAppend = options.systemPromptAppend
+            }
+            if (options.loadClaudeMd) {
+                initOptions.settingSources = options.loadClaudeMd
+                    .split(',')
+                    .map((s: string) => s.trim())
+            }
+
+            const template = generateConfigTemplate(initOptions)
 
             const { writeFileSync, mkdirSync } = require('fs')
             const { dirname } = require('path')
