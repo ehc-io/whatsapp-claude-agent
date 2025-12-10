@@ -71,15 +71,67 @@ async function fetchLatestRelease(): Promise<ReleaseInfo> {
     return (await response.json()) as ReleaseInfo
 }
 
-async function downloadBinary(url: string, destPath: string): Promise<void> {
-    console.log(`Downloading from: ${url}`)
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
+function renderProgressBar(percent: number, width: number = 30): string {
+    const filled = Math.round((percent / 100) * width)
+    const empty = width - filled
+    return '[' + '#'.repeat(filled) + '-'.repeat(empty) + ']'
+}
+
+async function downloadBinary(url: string, destPath: string): Promise<void> {
     const response = await fetch(url)
     if (!response.ok) {
         throw new Error(`Failed to download: ${response.statusText}`)
     }
 
-    const buffer = await response.arrayBuffer()
+    const contentLength = response.headers.get('content-length')
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : 0
+
+    if (!response.body) {
+        throw new Error('No response body')
+    }
+
+    const chunks: Uint8Array[] = []
+    let downloadedBytes = 0
+
+    const reader = response.body.getReader()
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        chunks.push(value)
+        downloadedBytes += value.length
+
+        // Update progress bar
+        if (totalBytes > 0) {
+            const percent = Math.round((downloadedBytes / totalBytes) * 100)
+            const bar = renderProgressBar(percent)
+            process.stdout.write(
+                `\r${bar} ${percent}% (${formatBytes(downloadedBytes)}/${formatBytes(totalBytes)})`
+            )
+        } else {
+            process.stdout.write(`\rDownloaded: ${formatBytes(downloadedBytes)}`)
+        }
+    }
+
+    // Clear progress line and print completion
+    process.stdout.write('\r' + ' '.repeat(60) + '\r')
+
+    // Combine chunks and write to file
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+    const buffer = new Uint8Array(totalLength)
+    let offset = 0
+    for (const chunk of chunks) {
+        buffer.set(chunk, offset)
+        offset += chunk.length
+    }
+
     await Bun.write(destPath, buffer)
 }
 
@@ -176,6 +228,7 @@ export async function runUpdate(): Promise<never> {
         const tempPath = `${execPath}.new`
         const backupPath = `${execPath}.backup`
 
+        console.log(`\nDownloading ${assetName}...`)
         await downloadBinary(asset.browser_download_url, tempPath)
         console.log('Download complete.')
 
