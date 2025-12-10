@@ -41,8 +41,7 @@ auth_info*/
 creds.json
 
 # Bun
-bun.lock
-bun.lockb
+# Note: bun.lock should be committed for reproducible installs
 
 # Runtime data
 pids/
@@ -101,10 +100,6 @@ temp/
 test-results/
 playwright-report/
 .vitest/
-
-# Claude Code
-.claude/
-CLAUDE.md
 
 # Debug
 .debug/
