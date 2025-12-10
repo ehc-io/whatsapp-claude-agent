@@ -278,10 +278,15 @@ You can create a config file at `~/.whatsapp-claude-agent/config.json`:
 ```json
 {
     "whitelist": ["+1234567890", "+0987654321"],
+    "directory": "/path/to/working/directory",
     "mode": "default",
+    "sessionPath": "~/.whatsapp-claude-agent/session",
     "model": "sonnet",
-    "agentName": "My Custom Agent",
+    "maxTurns": 50,
+    "processMissed": true,
+    "missedThresholdMins": 60,
     "verbose": false,
+    "agentName": "My Custom Agent",
     "systemPrompt": "You are a helpful coding assistant.",
     "systemPromptAppend": "Always explain your reasoning.",
     "settingSources": ["user", "project"],
@@ -290,12 +295,30 @@ You can create a config file at `~/.whatsapp-claude-agent/config.json`:
 }
 ```
 
+All CLI options can be configured via the config file. Here's the full reference:
+
+| Config Property       | CLI Equivalent           | Description                                                   |
+| --------------------- | ------------------------ | ------------------------------------------------------------- |
+| `whitelist`           | `-w, --whitelist`        | Array of phone numbers allowed to interact (required)         |
+| `directory`           | `-d, --directory`        | Working directory for Claude (default: current directory)     |
+| `mode`                | `-m, --mode`             | Permission mode (default: `"default"`)                        |
+| `sessionPath`         | `-s, --session`          | WhatsApp session directory                                    |
+| `model`               | `--model`                | Claude model to use (supports shorthands)                     |
+| `maxTurns`            | `--max-turns`            | Maximum conversation turns                                    |
+| `processMissed`       | `--process-missed`       | Process messages received while offline (default: `true`)     |
+| `missedThresholdMins` | `--missed-threshold`     | Only process messages from last N minutes (default: `60`)     |
+| `verbose`             | `-v, --verbose`          | Enable verbose logging (default: `false`)                     |
+| `agentName`           | `--agent-name`           | Agent identity name (auto-generated if omitted)               |
+| `systemPrompt`        | `--system-prompt`        | Custom system prompt (replaces default)                       |
+| `systemPromptAppend`  | `--system-prompt-append` | Text to append to default system prompt                       |
+| `settingSources`      | `--load-claude-md`       | CLAUDE.md sources: `["user", "project", "local"]`             |
+| `resumeSessionId`     | `--resume`               | Session ID to resume on startup                               |
+| `forkSession`         | `--fork`                 | Fork resumed session instead of continuing (default: `false`) |
+
 Notes:
 
-- `agentName` sets the agent identity; if omitted, auto-generates from directory name + random superhero
+- CLI options override config file values when both are provided
 - Use either `systemPrompt` (replaces default) OR `systemPromptAppend` (adds to default), not both
-- `resumeSessionId` can be set to automatically resume a specific session on startup
-- `forkSession` when `true` will fork the resumed session instead of continuing it
 - `model` supports shorthands like `opus`, `sonnet`, `haiku`, or full model IDs
 
 ## Security Considerations
