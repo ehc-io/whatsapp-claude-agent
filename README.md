@@ -55,19 +55,22 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for instructions on building from source.
 whatsapp-claude-agent [options]
 
 Options:
-  -d, --directory <path>     Working directory for Claude (default: cwd)
-  -m, --mode <mode>          Permission mode (see below)
-  -w, --whitelist <numbers>  Comma-separated phone numbers (required)
-  -s, --session <path>       WhatsApp session directory
-  --model <model>            Claude model to use
-  --max-turns <n>            Maximum conversation turns
-  --process-missed           Process messages received while offline
-  --no-process-missed        Don't process messages received while offline
-  --missed-threshold <mins>  Only process messages from last N minutes
-  -v, --verbose              Enable verbose logging
-  -c, --config <path>        Path to config file
-  -h, --help                 Show help
-  --version                  Show version
+  -d, --directory <path>         Working directory for Claude (default: cwd)
+  -m, --mode <mode>              Permission mode (see below)
+  -w, --whitelist <numbers>      Comma-separated phone numbers (required)
+  -s, --session <path>           WhatsApp session directory
+  --model <model>                Claude model to use
+  --max-turns <n>                Maximum conversation turns
+  --process-missed               Process messages received while offline
+  --no-process-missed            Don't process messages received while offline
+  --missed-threshold <mins>      Only process messages from last N minutes
+  --system-prompt <prompt>       Custom system prompt (replaces default)
+  --system-prompt-append <text>  Text to append to default system prompt
+  --load-claude-md <sources>     Load CLAUDE.md files (user,project,local)
+  -v, --verbose                  Enable verbose logging
+  -c, --config <path>            Path to config file
+  -h, --help                     Show help
+  --version                      Show version
 ```
 
 ### Examples
@@ -90,23 +93,61 @@ bun run dev -- -w +1234567890 -m acceptEdits
 
 # Full access mode (dangerous!)
 bun run dev -- -w +1234567890 -m bypassPermissions
+
+# Custom system prompt
+bun run dev -- -w +1234567890 --system-prompt "You are a helpful coding assistant."
+
+# Append instructions to default prompt
+bun run dev -- -w +1234567890 --system-prompt-append "Always explain your reasoning."
+
+# Load CLAUDE.md files from user and project directories
+bun run dev -- -w +1234567890 --load-claude-md user,project
 ```
 
 ## WhatsApp Commands
 
 Once connected, you can send these commands via WhatsApp:
 
+### Session Commands
+
+| Command   | Description                |
+| --------- | -------------------------- |
+| `/help`   | Show available commands    |
+| `/status` | Show agent status          |
+| `/clear`  | Clear conversation history |
+
+### Permission Mode Commands
+
 | Command        | Description                              |
 | -------------- | ---------------------------------------- |
-| `/help`        | Show available commands                  |
-| `/status`      | Show agent status                        |
-| `/clear`       | Clear conversation history               |
 | `/mode`        | Show current permission mode             |
 | `/plan`        | Switch to plan mode (read-only)          |
 | `/default`     | Switch to default mode (asks permission) |
 | `/acceptEdits` | Switch to acceptEdits mode               |
 | `/bypass`      | Switch to bypassPermissions mode         |
 | `/dontAsk`     | Switch to dontAsk mode                   |
+
+### System Prompt Commands
+
+Customize how Claude behaves by modifying the system prompt. See the [Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/modifying-system-prompts) for details.
+
+| Command                | Description                          |
+| ---------------------- | ------------------------------------ |
+| `/prompt`              | Show current system prompt           |
+| `/prompt <text>`       | Set a custom system prompt           |
+| `/prompt clear`        | Reset to default system prompt       |
+| `/promptappend <text>` | Append text to default system prompt |
+| `/promptappend clear`  | Clear appended text                  |
+
+### CLAUDE.md Settings Commands
+
+| Command                  | Description                      |
+| ------------------------ | -------------------------------- |
+| `/claudemd`              | Show current CLAUDE.md sources   |
+| `/claudemd user,project` | Load specified CLAUDE.md sources |
+| `/claudemd clear`        | Disable CLAUDE.md loading        |
+
+Valid CLAUDE.md sources: `user` (global ~/.claude/CLAUDE.md), `project` (project CLAUDE.md), `local` (local settings)
 
 ## Permission Modes
 
@@ -129,9 +170,14 @@ You can create a config file at `~/.whatsapp-claude-agent/config.json`:
     "whitelist": ["+1234567890", "+0987654321"],
     "mode": "default",
     "model": "claude-sonnet-4-20250514",
-    "verbose": false
+    "verbose": false,
+    "systemPrompt": "You are a helpful coding assistant.",
+    "systemPromptAppend": "Always explain your reasoning.",
+    "settingSources": ["user", "project"]
 }
 ```
+
+Note: Use either `systemPrompt` (replaces default) OR `systemPromptAppend` (adds to default), not both.
 
 ## Security Considerations
 
@@ -145,7 +191,7 @@ You can create a config file at `~/.whatsapp-claude-agent/config.json`:
 - [Bun](https://bun.sh/) runtime (v1.0+)
 - Node.js 20+ (for some dependencies)
 - Active WhatsApp account
-- Claude API key (see Authentication below)
+- Claude API key or Claude Code installed and configured (see Authentication below)
 
 ## Authentication
 

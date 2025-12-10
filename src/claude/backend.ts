@@ -1,4 +1,4 @@
-import type { Config, PermissionMode } from '../types.ts'
+import type { Config, PermissionMode, SettingSource } from '../types.ts'
 import type { Logger } from '../utils/logger.ts'
 
 export interface ClaudeResponse {
@@ -30,6 +30,57 @@ export abstract class ClaudeBackend {
 
     setPermissionCallback(callback: PermissionCallback): void {
         this.onPermissionRequest = callback
+    }
+
+    /**
+     * Set a custom system prompt (replaces default)
+     */
+    setSystemPrompt(prompt: string | undefined): void {
+        this.config.systemPrompt = prompt
+        this.config.systemPromptAppend = undefined // Clear append when setting custom prompt
+        this.logger.info(
+            prompt ? `System prompt set (${prompt.length} chars)` : 'System prompt cleared'
+        )
+    }
+
+    /**
+     * Set text to append to the default system prompt
+     */
+    setSystemPromptAppend(text: string | undefined): void {
+        this.config.systemPromptAppend = text
+        this.config.systemPrompt = undefined // Clear custom prompt when appending
+        this.logger.info(
+            text
+                ? `System prompt append set (${text.length} chars)`
+                : 'System prompt append cleared'
+        )
+    }
+
+    /**
+     * Set which CLAUDE.md sources to load
+     */
+    setSettingSources(sources: SettingSource[] | undefined): void {
+        this.config.settingSources = sources
+        this.logger.info(
+            sources ? `Setting sources set to: ${sources.join(', ')}` : 'Setting sources cleared'
+        )
+    }
+
+    /**
+     * Get current system prompt configuration
+     */
+    getSystemPromptConfig(): { systemPrompt?: string; systemPromptAppend?: string } {
+        return {
+            systemPrompt: this.config.systemPrompt,
+            systemPromptAppend: this.config.systemPromptAppend
+        }
+    }
+
+    /**
+     * Get current setting sources
+     */
+    getSettingSources(): SettingSource[] | undefined {
+        return this.config.settingSources
     }
 
     abstract query(prompt: string, conversationHistory?: string[]): Promise<ClaudeResponse>

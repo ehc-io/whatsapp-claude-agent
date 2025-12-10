@@ -4,7 +4,13 @@ import { MessageQueue } from './queue.ts'
 import type { ClaudeBackend } from '../claude/backend.ts'
 import { PermissionManager } from '../claude/permissions.ts'
 import { isCommand, parseCommand } from '../whatsapp/messages.ts'
-import type { Config, IncomingMessage, PermissionMode, AgentEvent } from '../types.ts'
+import type {
+    Config,
+    IncomingMessage,
+    PermissionMode,
+    SettingSource,
+    AgentEvent
+} from '../types.ts'
 import type { Logger } from '../utils/logger.ts'
 
 export class ConversationManager extends EventEmitter {
@@ -124,11 +130,125 @@ export class ConversationManager extends EventEmitter {
                 await sendResponse(this.getStatusMessage())
                 break
 
+            case 'systemprompt':
+            case 'prompt':
+                await this.handleSystemPromptCommand(parsed.args, sendResponse)
+                break
+
+            case 'promptappend':
+            case 'appendprompt':
+                await this.handlePromptAppendCommand(parsed.args, sendResponse)
+                break
+
+            case 'claudemd':
+            case 'settings':
+                await this.handleClaudeMdCommand(parsed.args, sendResponse)
+                break
+
             default:
                 await sendResponse(
                     `Unknown command: /${parsed.command}\n\nType /help for available commands.`
                 )
         }
+    }
+
+    private async handleSystemPromptCommand(
+        args: string,
+        sendResponse: (text: string) => Promise<void>
+    ): Promise<void> {
+        if (!args) {
+            const config = this.backend.getSystemPromptConfig()
+            if (config.systemPrompt) {
+                await sendResponse(
+                    `*Current system prompt:*\n\n${config.systemPrompt.slice(0, 500)}${config.systemPrompt.length > 500 ? '...' : ''}`
+                )
+            } else if (config.systemPromptAppend) {
+                await sendResponse(
+                    `*System prompt append:*\n\n${config.systemPromptAppend.slice(0, 500)}${config.systemPromptAppend.length > 500 ? '...' : ''}`
+                )
+            } else {
+                await sendResponse('Using default Claude Code system prompt.')
+            }
+            return
+        }
+
+        if (args.toLowerCase() === 'clear' || args.toLowerCase() === 'reset') {
+            this.backend.setSystemPrompt(undefined)
+            await sendResponse('✓ System prompt reset to default.')
+            return
+        }
+
+        this.backend.setSystemPrompt(args)
+        await sendResponse(`✓ System prompt set (${args.length} chars).`)
+    }
+
+    private async handlePromptAppendCommand(
+        args: string,
+        sendResponse: (text: string) => Promise<void>
+    ): Promise<void> {
+        if (!args) {
+            const config = this.backend.getSystemPromptConfig()
+            if (config.systemPromptAppend) {
+                await sendResponse(
+                    `*Current prompt append:*\n\n${config.systemPromptAppend.slice(0, 500)}${config.systemPromptAppend.length > 500 ? '...' : ''}`
+                )
+            } else {
+                await sendResponse('No text appended to system prompt.')
+            }
+            return
+        }
+
+        if (args.toLowerCase() === 'clear' || args.toLowerCase() === 'reset') {
+            this.backend.setSystemPromptAppend(undefined)
+            await sendResponse('✓ Prompt append cleared.')
+            return
+        }
+
+        this.backend.setSystemPromptAppend(args)
+        await sendResponse(
+            `✓ Text will be appended to default system prompt (${args.length} chars).`
+        )
+    }
+
+    private async handleClaudeMdCommand(
+        args: string,
+        sendResponse: (text: string) => Promise<void>
+    ): Promise<void> {
+        const validSources: SettingSource[] = ['user', 'project', 'local']
+
+        if (!args) {
+            const sources = this.backend.getSettingSources()
+            if (sources && sources.length > 0) {
+                await sendResponse(`*CLAUDE.md sources:* ${sources.join(', ')}`)
+            } else {
+                await sendResponse(
+                    'No CLAUDE.md sources configured. Use `/claudemd user,project` to enable.'
+                )
+            }
+            return
+        }
+
+        if (args.toLowerCase() === 'clear' || args.toLowerCase() === 'none') {
+            this.backend.setSettingSources(undefined)
+            await sendResponse('✓ CLAUDE.md loading disabled.')
+            return
+        }
+
+        const requestedSources = args
+            .split(',')
+            .map((s) => s.trim().toLowerCase())
+            .filter((s) => s.length > 0)
+
+        const invalid = requestedSources.filter((s) => !validSources.includes(s as SettingSource))
+        if (invalid.length > 0) {
+            await sendResponse(
+                `❌ Invalid sources: ${invalid.join(', ')}\n\nValid sources: user, project, local`
+            )
+            return
+        }
+
+        this.backend.setSettingSources(requestedSources as SettingSource[])
+        await sendResponse(`✓ CLAUDE.md sources set to: ${requestedSources.join(', ')}`)
     }
 
     private async processWithClaude(
@@ -187,32 +307,56 @@ export class ConversationManager extends EventEmitter {
     private getHelpMessage(): string {
         return `*Available Commands:*
 
+*Session:*
 /clear - Clear conversation history
+/status - Show agent status
+/help - Show this help message
+
+*Permission Modes:*
 /mode - Show current permission mode
 /plan - Switch to plan mode (read-only)
 /default - Switch to default mode (asks for permission)
 /acceptEdits - Auto-accept file edits
 /bypass - Bypass all permissions (dangerous!)
 /dontAsk - Deny if not pre-approved
-/status - Show agent status
-/help - Show this help message
 
-*Permission Modes:*
-• *plan* - Claude can only read files
-• *default* - Claude asks before writing
-• *acceptEdits* - Auto-accept file edits
-• *bypassPermissions* - Full access (dangerous!)
-• *dontAsk* - Deny if not pre-approved`
+*System Prompt:*
+/prompt - Show current system prompt
+/prompt <text> - Set custom system prompt
+/prompt clear - Reset to default
+/promptappend <text> - Append to default prompt
+/promptappend clear - Clear append
+
+*CLAUDE.md Settings:*
+/claudemd - Show current sources
+/claudemd user,project - Load user & project CLAUDE.md
+/claudemd clear - Disable CLAUDE.md loading
+
+*Valid CLAUDE.md sources:* user, project, local`
     }
 
     private getStatusMessage(): string {
+        const promptConfig = this.backend.getSystemPromptConfig()
+        const sources = this.backend.getSettingSources()
+
+        let promptStatus = 'default'
+        if (promptConfig.systemPrompt) {
+            promptStatus = `custom (${promptConfig.systemPrompt.length} chars)`
+        } else if (promptConfig.systemPromptAppend) {
+            promptStatus = `default + append (${promptConfig.systemPromptAppend.length} chars)`
+        }
+
+        const claudeMdStatus = sources?.length ? sources.join(', ') : 'disabled'
+
         return `*Agent Status:*
 
 📁 Working directory: \`${this.config.directory}\`
 🔐 Mode: ${this.config.mode}
 🤖 Model: ${this.config.model}
 💬 Conversation length: ${this.history.length} messages
-⏳ Pending permissions: ${this.permissions.pendingCount}`
+⏳ Pending permissions: ${this.permissions.pendingCount}
+📝 System prompt: ${promptStatus}
+📄 CLAUDE.md sources: ${claudeMdStatus}`
     }
 
     /**

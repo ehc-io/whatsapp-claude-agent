@@ -1,8 +1,14 @@
 import { z } from 'zod'
-import type { PermissionMode as SDKPermissionMode } from '@anthropic-ai/claude-agent-sdk'
+import type {
+    PermissionMode as SDKPermissionMode,
+    SettingSource as SDKSettingSource
+} from '@anthropic-ai/claude-agent-sdk'
 
 // Re-export SDK's PermissionMode type for use throughout the app
 export type PermissionMode = SDKPermissionMode
+
+// Re-export SDK's SettingSource type for use throughout the app
+export type SettingSource = SDKSettingSource
 
 // Zod schema for runtime validation - aligns with SDK's PermissionMode
 export const PermissionModeSchema = z.enum([
@@ -12,6 +18,9 @@ export const PermissionModeSchema = z.enum([
     'plan',
     'dontAsk'
 ])
+
+// Zod schema for runtime validation - aligns with SDK's SettingSource
+export const SettingSourceSchema = z.enum(['user', 'project', 'local'])
 
 export const ConfigSchema = z.object({
     directory: z.string().default(process.cwd()),
@@ -24,7 +33,8 @@ export const ConfigSchema = z.object({
     missedThresholdMins: z.number().default(60),
     verbose: z.boolean().default(false),
     systemPrompt: z.string().optional(),
-    systemPromptAppend: z.string().optional()
+    systemPromptAppend: z.string().optional(),
+    settingSources: z.array(SettingSourceSchema).optional()
 })
 
 export type Config = z.infer<typeof ConfigSchema>

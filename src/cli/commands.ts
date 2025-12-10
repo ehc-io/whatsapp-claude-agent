@@ -56,6 +56,10 @@ Examples:
             '--system-prompt-append <text>',
             'Text to append to the default Claude Code system prompt'
         )
+        .option(
+            '--load-claude-md <sources>',
+            'Comma-separated list of CLAUDE.md sources to load: "user", "project", "local" (e.g., "user,project")'
+        )
 
     return program
 }

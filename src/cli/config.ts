@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs'
 import { homedir } from 'os'
 import { resolve } from 'path'
-import { ConfigSchema, type Config } from '../types.ts'
+import { ConfigSchema, type Config, type SettingSource } from '../types.ts'
 
 const CONFIG_FILE_NAME = 'config.json'
 
@@ -46,6 +46,7 @@ export interface CLIOptions {
     config?: string
     systemPrompt?: string
     systemPromptAppend?: string
+    loadClaudeMd?: string
 }
 
 export function parseConfig(cliOptions: CLIOptions): Config {
@@ -72,7 +73,10 @@ export function parseConfig(cliOptions: CLIOptions): Config {
             : fileConfig.missedThresholdMins,
         verbose: cliOptions.verbose ?? fileConfig.verbose,
         systemPrompt: cliOptions.systemPrompt || fileConfig.systemPrompt,
-        systemPromptAppend: cliOptions.systemPromptAppend || fileConfig.systemPromptAppend
+        systemPromptAppend: cliOptions.systemPromptAppend || fileConfig.systemPromptAppend,
+        settingSources: cliOptions.loadClaudeMd
+            ? (cliOptions.loadClaudeMd.split(',').map((s) => s.trim()) as SettingSource[])
+            : fileConfig.settingSources
     }
 
     // Filter out undefined values

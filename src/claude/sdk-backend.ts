@@ -111,6 +111,7 @@ export class SDKBackend extends ClaudeBackend {
                     permissionMode: this.mode,
                     tools: { type: 'preset', preset: 'claude_code' },
                     systemPrompt: this.buildSystemPrompt(),
+                    settingSources: this.config.settingSources,
                     canUseTool: async (toolName: string, input: unknown) => {
                         this.logger.info(`>>> canUseTool callback invoked: ${toolName}`)
                         return this.handleToolPermission(toolName, input)
