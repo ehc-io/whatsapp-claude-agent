@@ -11,10 +11,11 @@ Manage config without running agent via `config` subcommand:
 ```bash
 # Initialize new config
 whatsapp-claude-agent config init "+1234567890"
-whatsapp-claude-agent config init "+111,+222"  # multiple numbers
+whatsapp-claude-agent config init "+111,+222"         # multiple numbers
+whatsapp-claude-agent config init "+111" --force      # overwrite existing
 
 # View config
-whatsapp-claude-agent config show              # human-readable
+whatsapp-claude-agent config show              # human-readable (alias: list)
 whatsapp-claude-agent config show --json       # JSON output
 whatsapp-claude-agent config export            # JSON to stdout
 
@@ -23,11 +24,12 @@ whatsapp-claude-agent config get model
 whatsapp-claude-agent config set model opus
 whatsapp-claude-agent config set whitelist "+111,+222"
 whatsapp-claude-agent config set verbose true
-whatsapp-claude-agent config unset maxTurns
+whatsapp-claude-agent config unset maxTurns   # alias: delete
 
 # Import config
-whatsapp-claude-agent config import '{"model":"opus"}'
-whatsapp-claude-agent config import config.backup.json --merge
+whatsapp-claude-agent config import '{"model":"opus"}'         # JSON string
+whatsapp-claude-agent config import config.backup.json         # from file
+whatsapp-claude-agent config import config.backup.json --merge # merge with existing
 
 # Specify config location
 whatsapp-claude-agent config -d /path/to/project show
@@ -117,7 +119,7 @@ generateConfigTemplate(whitelist: string[]): string
 
 ## Saveable vs Runtime Properties
 
-Only persistent properties saved to file (defined in `SAVEABLE_KEYS`):
+Only persistent properties saved to file (defined in `SAVEABLE_KEYS` in `src/cli/config.ts`):
 
 - whitelist, directory, mode, sessionPath, model, maxTurns
 - processMissed, missedThresholdMins, verbose, agentName

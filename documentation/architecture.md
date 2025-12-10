@@ -48,9 +48,11 @@ WhatsApp-Claude-Agent bridges WhatsApp with Claude Code via the Claude Agent SDK
 src/
 ├── index.ts              # Entry point, orchestrator
 ├── types.ts              # Shared types, Zod schemas
+├── build-info.ts         # Build metadata
 ├── cli/
 │   ├── commands.ts       # CLI argument parsing (Commander)
-│   └── config.ts         # Config file load/save
+│   ├── config.ts         # Config file load/save
+│   └── config-commands.ts # Config subcommand handlers
 ├── claude/
 │   ├── backend.ts        # Backend interface
 │   ├── sdk-backend.ts    # Agent SDK implementation
@@ -67,7 +69,7 @@ src/
 │   └── auth.ts           # Auth state management
 └── utils/
     ├── logger.ts         # Logging utility
-    ├── agent-name.ts     # Agent name generation
+    ├── agent-name.ts     # Agent name generation (hostname+dir+superhero)
     └── phone.ts          # Phone number utilities
 ```
 

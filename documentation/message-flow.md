@@ -1,5 +1,36 @@
 # Message Flow
 
+## Startup Flow
+
+```
+main()
+  ├─ parseArgs() → validate config
+  ├─ createLogger()
+  ├─ SDKBackend(config) → setSessionCallback()
+  ├─ WhatsAppClient(config)
+  ├─ ConversationManager(backend, config)
+  ├─ Wire up event handlers
+  └─ whatsapp.connect()
+       │
+       ▼
+WhatsApp 'ready' event
+  └─ sendStartupAnnouncement()
+       └─ For each whitelisted number:
+            whatsapp.sendMessage(jid, announcement)
+```
+
+Startup announcement sent to all whitelisted numbers:
+
+```
+Now online!
+
+📁 Working directory: `{directory}`
+🔐 Mode: {mode}
+🧠 Model: {model}
+
+Type */help* for available commands.
+```
+
 ## Incoming Message Pipeline
 
 ```
@@ -77,11 +108,28 @@ permissionCallback(toolName, description, input)
        WhatsApp shows prompt to user
               │
               ▼
-       User responds (Y/N/1/2/etc)
+       User responds (Y/YES/ALLOW or N/NO/DENY)
               │
               ▼
        handleMessage() → tryResolveFromMessage()
          └─ Resolves Promise → SDK continues
+```
+
+Permission request message format:
+
+```
+🔐 *Permission Request*
+
+Claude wants to use *{toolName}*:
+
+```
+
+{description}
+
+```
+
+Reply *Y* to allow or *N* to deny.
+(Auto-denies in 5 minutes)
 ```
 
 ## Response Flow
@@ -95,7 +143,7 @@ index.ts sendResponse callback
        │
        ▼
 WhatsAppClient.sendMessage()
-  ├─ formatMessageWithAgentName()
+  ├─ formatMessageWithAgentName() → "[🤖 AgentName] text"
   ├─ chunkMessage() → splits if > 4000 chars
   └─ sock.sendMessage() for each chunk
 ```
