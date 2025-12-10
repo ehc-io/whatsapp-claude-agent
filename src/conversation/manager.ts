@@ -25,6 +25,27 @@ import type { Logger } from '../utils/logger.ts'
 import type { WhatsAppClient } from '../whatsapp/client.ts'
 import { parseAgentTargeting } from '../utils/agent-name.ts'
 
+/**
+ * Config properties that require a new session when changed.
+ * Sessions are tied to: directory, model, and system prompt configuration.
+ */
+export const SESSION_INVALIDATING_KEYS: (keyof Config)[] = [
+    'directory',
+    'model',
+    'systemPrompt',
+    'systemPromptAppend'
+]
+
+/**
+ * Human-readable descriptions for session-invalidating properties
+ */
+const SESSION_INVALIDATING_DESCRIPTIONS: Record<string, string> = {
+    directory: 'working directory',
+    model: 'model',
+    systemPrompt: 'system prompt',
+    systemPromptAppend: 'system prompt append'
+}
+
 export class ConversationManager extends EventEmitter {
     private history: ConversationHistory
     private queue: MessageQueue
@@ -229,6 +250,10 @@ export class ConversationManager extends EventEmitter {
                 await sendResponse(this.getAgentInfoMessage())
                 break
 
+            case 'reload':
+                await this.handleReloadCommand(sendResponse)
+                break
+
             default:
                 await sendResponse(
                     `Unknown command: /${parsed.command}\n\nType /help for available commands.`
@@ -257,34 +282,15 @@ export class ConversationManager extends EventEmitter {
         }
 
         if (args.toLowerCase() === 'clear' || args.toLowerCase() === 'reset') {
-            // Clear session since system prompt affects conversation context
-            const currentSessionId = this.backend.getSessionId()
-            if (currentSessionId) {
-                this.backend.setSessionId(undefined)
-                this.history.clear()
-            }
             this.backend.setSystemPrompt(undefined)
-            let response = '✓ System prompt reset to default.'
-            if (currentSessionId) {
-                response +=
-                    '\n\n⚠️ Session cleared. A new session will start with your next message.'
-            }
-            await sendResponse(response)
+            const sessionMsg = this.invalidateSessionWithMessage('system prompt changed')
+            await sendResponse(`✓ System prompt reset to default.${sessionMsg}`)
             return
         }
 
-        // Clear session since system prompt affects conversation context
-        const currentSessionId = this.backend.getSessionId()
-        if (currentSessionId) {
-            this.backend.setSessionId(undefined)
-            this.history.clear()
-        }
         this.backend.setSystemPrompt(args)
-        let response = `✓ System prompt set (${args.length} chars).`
-        if (currentSessionId) {
-            response += '\n\n⚠️ Session cleared. A new session will start with your next message.'
-        }
-        await sendResponse(response)
+        const sessionMsg = this.invalidateSessionWithMessage('system prompt changed')
+        await sendResponse(`✓ System prompt set (${args.length} chars).${sessionMsg}`)
     }
 
     private async handlePromptAppendCommand(
@@ -304,34 +310,17 @@ export class ConversationManager extends EventEmitter {
         }
 
         if (args.toLowerCase() === 'clear' || args.toLowerCase() === 'reset') {
-            // Clear session since system prompt affects conversation context
-            const currentSessionId = this.backend.getSessionId()
-            if (currentSessionId) {
-                this.backend.setSessionId(undefined)
-                this.history.clear()
-            }
             this.backend.setSystemPromptAppend(undefined)
-            let response = '✓ Prompt append cleared.'
-            if (currentSessionId) {
-                response +=
-                    '\n\n⚠️ Session cleared. A new session will start with your next message.'
-            }
-            await sendResponse(response)
+            const sessionMsg = this.invalidateSessionWithMessage('system prompt append changed')
+            await sendResponse(`✓ Prompt append cleared.${sessionMsg}`)
             return
         }
 
-        // Clear session since system prompt affects conversation context
-        const currentSessionId = this.backend.getSessionId()
-        if (currentSessionId) {
-            this.backend.setSessionId(undefined)
-            this.history.clear()
-        }
         this.backend.setSystemPromptAppend(args)
-        let response = `✓ Text will be appended to default system prompt (${args.length} chars).`
-        if (currentSessionId) {
-            response += '\n\n⚠️ Session cleared. A new session will start with your next message.'
-        }
-        await sendResponse(response)
+        const sessionMsg = this.invalidateSessionWithMessage('system prompt append changed')
+        await sendResponse(
+            `✓ Text will be appended to default system prompt (${args.length} chars).${sessionMsg}`
+        )
     }
 
     private async handleSessionCommand(
@@ -423,27 +412,12 @@ export class ConversationManager extends EventEmitter {
             return
         }
 
-        // Check if there's an active session - changing directory requires a new session
-        const currentSessionId = this.backend.getSessionId()
-        if (currentSessionId) {
-            // Clear the session since it's tied to the old directory
-            this.backend.setSessionId(undefined)
-            this.history.clear()
-            this.logger.info(
-                `Session cleared due to directory change (sessions are tied to their original directory)`
-            )
-        }
-
         // Change the directory
         this.backend.setDirectory(targetPath)
         this.config.directory = targetPath
 
-        let response = `✓ Working directory changed to: \`${targetPath}\``
-        if (currentSessionId) {
-            response +=
-                '\n\n⚠️ Previous session was cleared (sessions are tied to their original directory). A new session will start with your next message.'
-        }
-        await sendResponse(response)
+        const sessionMsg = this.invalidateSessionWithMessage('working directory changed')
+        await sendResponse(`✓ Working directory changed to: \`${targetPath}\`${sessionMsg}`)
     }
 
     private async handleModelCommand(
@@ -472,28 +446,16 @@ export class ConversationManager extends EventEmitter {
             return
         }
 
-        // Check if there's an active session - changing model may require a new session
-        const currentSessionId = this.backend.getSessionId()
-        if (currentSessionId) {
-            // Clear the session since changing model may affect context
-            this.backend.setSessionId(undefined)
-            this.history.clear()
-            this.logger.info('Session cleared due to model change')
-        }
-
         // Change the model
         this.backend.setModel(resolvedModel)
         this.config.model = resolvedModel
 
-        let response =
+        const baseResponse =
             requestedInput !== resolvedModel
                 ? `✓ Model changed to: \`${resolvedModel}\` (from "${requestedInput}")`
                 : `✓ Model changed to: \`${resolvedModel}\``
-        if (currentSessionId) {
-            response +=
-                '\n\n⚠️ Previous session was cleared. A new session will start with your next message.'
-        }
-        await sendResponse(response)
+        const sessionMsg = this.invalidateSessionWithMessage('model changed')
+        await sendResponse(`${baseResponse}${sessionMsg}`)
     }
 
     private async handleModelsCommand(
@@ -629,20 +591,8 @@ export class ConversationManager extends EventEmitter {
         }
 
         if (subcommand === 'reload') {
-            // Reload config from file (show what would be loaded, but don't actually reload since it requires restart)
-            const fileConfig = loadConfigFile(configPath)
-            if (Object.keys(fileConfig).length === 0) {
-                await sendResponse(
-                    `⚠️ No config file found at:\n\`${configPath}\`\n\nUse \`/config generate\` to create a template.`
-                )
-                return
-            }
-
-            // Show what's in the file
-            const configJson = JSON.stringify(fileConfig, null, 2)
-            await sendResponse(
-                `*Config file contents:*\n\n\`\`\`json\n${configJson.slice(0, 1500)}${configJson.length > 1500 ? '\n...' : ''}\n\`\`\`\n\n⚠️ Restart the agent to apply config file changes.`
-            )
+            // Redirect to /reload command
+            await this.handleReloadCommand(sendResponse)
             return
         }
 
@@ -655,7 +605,8 @@ export class ConversationManager extends EventEmitter {
 /config path - Show config file location
 /config save - Save current config to file
 /config generate - Generate a config template
-/config reload - View config file contents`)
+
+Use \`/reload\` to reload and apply config from disk.`)
     }
 
     private getConfigDisplay(): string {
@@ -812,9 +763,11 @@ Use \`/config save\` to save to file.`
 /config path - Show config file location
 /config save - Save current config to file
 /config generate - Generate a config template
-/config reload - View config file contents
+/reload - Reload and apply config from disk
 
-*Valid CLAUDE.md sources:* user, project, local`
+*Valid CLAUDE.md sources:* user, project, local
+
+*Session-invalidating changes:* directory, model, systemPrompt, systemPromptAppend`
 
         return help
     }
@@ -883,6 +836,175 @@ Type */help* for available commands.`
 📝 System prompt: ${promptStatus}
 📄 CLAUDE.md sources: ${claudeMdStatus}
 👥 Chat mode: ${chatModeStatus}`
+    }
+
+    /**
+     * Check which session-invalidating config properties have changed
+     * @returns Array of changed property names, empty if no session-invalidating changes
+     */
+    private getSessionInvalidatingChanges(
+        oldConfig: Partial<Config>,
+        newConfig: Partial<Config>
+    ): string[] {
+        const changes: string[] = []
+        for (const key of SESSION_INVALIDATING_KEYS) {
+            const oldVal = oldConfig[key]
+            const newVal = newConfig[key]
+            if (oldVal !== newVal) {
+                changes.push(SESSION_INVALIDATING_DESCRIPTIONS[key] || key)
+            }
+        }
+        return changes
+    }
+
+    /**
+     * Invalidate the current session if there is one.
+     * Clears session ID and conversation history.
+     * @returns true if a session was invalidated, false if no session was active
+     */
+    private invalidateSession(): boolean {
+        const currentSessionId = this.backend.getSessionId()
+        if (currentSessionId) {
+            this.backend.setSessionId(undefined)
+            this.history.clear()
+            this.logger.info('Session invalidated')
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Invalidate session if needed and return a message suffix explaining why
+     * @returns Message suffix to append, or empty string if no session was invalidated
+     */
+    private invalidateSessionWithMessage(reason: string): string {
+        if (this.invalidateSession()) {
+            return `\n\n⚠️ Session cleared (${reason}). A new session will start with your next message.`
+        }
+        return ''
+    }
+
+    /**
+     * Handle /reload command - reload configuration from disk
+     */
+    private async handleReloadCommand(
+        sendResponse: (text: string) => Promise<void>
+    ): Promise<void> {
+        const configPath = getLocalConfigPath(this.config.directory)
+
+        // Check if config file exists
+        if (!existsSync(configPath)) {
+            await sendResponse(
+                `❌ No config file found at \`${configPath}\`\n\nUse \`/config save\` to create one first.`
+            )
+            return
+        }
+
+        // Load config from disk
+        let newConfig: Partial<Config>
+        try {
+            newConfig = loadConfigFile(undefined, this.config.directory)
+        } catch (error) {
+            await sendResponse(
+                `❌ Failed to load config: ${error instanceof Error ? error.message : String(error)}`
+            )
+            return
+        }
+
+        // Track what changed
+        const changes: string[] = []
+        const sessionInvalidatingChanges = this.getSessionInvalidatingChanges(
+            this.config,
+            newConfig
+        )
+
+        // Apply changes
+        if (newConfig.directory !== undefined && newConfig.directory !== this.config.directory) {
+            // Validate new directory
+            if (!existsSync(newConfig.directory)) {
+                await sendResponse(`❌ Directory not found: \`${newConfig.directory}\``)
+                return
+            }
+            this.backend.setDirectory(newConfig.directory)
+            this.config.directory = newConfig.directory
+            changes.push(`directory → \`${newConfig.directory}\``)
+        }
+
+        if (newConfig.model !== undefined && newConfig.model !== this.config.model) {
+            const resolved = this.backend.resolveModelShorthand(newConfig.model)
+            if (resolved) {
+                this.backend.setModel(resolved)
+                this.config.model = resolved
+                changes.push(`model → \`${resolved}\``)
+            }
+        }
+
+        if (newConfig.mode !== undefined && newConfig.mode !== this.config.mode) {
+            this.setMode(newConfig.mode)
+            changes.push(`mode → \`${newConfig.mode}\``)
+        }
+
+        if (
+            newConfig.systemPrompt !== undefined &&
+            newConfig.systemPrompt !== this.config.systemPrompt
+        ) {
+            this.backend.setSystemPrompt(newConfig.systemPrompt || undefined)
+            changes.push(newConfig.systemPrompt ? 'system prompt updated' : 'system prompt cleared')
+        }
+
+        if (
+            newConfig.systemPromptAppend !== undefined &&
+            newConfig.systemPromptAppend !== this.config.systemPromptAppend
+        ) {
+            this.backend.setSystemPromptAppend(newConfig.systemPromptAppend || undefined)
+            changes.push(
+                newConfig.systemPromptAppend
+                    ? 'system prompt append updated'
+                    : 'system prompt append cleared'
+            )
+        }
+
+        if (newConfig.settingSources !== undefined) {
+            const currentSources = this.config.settingSources?.join(',') || ''
+            const newSources = newConfig.settingSources?.join(',') || ''
+            if (currentSources !== newSources) {
+                this.backend.setSettingSources(newConfig.settingSources)
+                changes.push(`CLAUDE.md sources → \`${newSources || 'disabled'}\``)
+            }
+        }
+
+        if (newConfig.agentName !== undefined && newConfig.agentName !== this.config.agentName) {
+            this.backend.setAgentName(newConfig.agentName)
+            this.config.agentName = newConfig.agentName
+            changes.push(`agent name → \`${newConfig.agentName}\``)
+        }
+
+        if (newConfig.verbose !== undefined && newConfig.verbose !== this.config.verbose) {
+            this.config.verbose = newConfig.verbose
+            changes.push(`verbose → \`${newConfig.verbose}\``)
+        }
+
+        if (newConfig.maxTurns !== undefined && newConfig.maxTurns !== this.config.maxTurns) {
+            this.config.maxTurns = newConfig.maxTurns
+            changes.push(`max turns → \`${newConfig.maxTurns}\``)
+        }
+
+        // Build response
+        if (changes.length === 0) {
+            await sendResponse('✓ Config reloaded. No changes detected.')
+            return
+        }
+
+        let response = `✓ Config reloaded from \`${configPath}\`\n\n*Changes applied:*\n${changes.map((c) => `• ${c}`).join('\n')}`
+
+        // Invalidate session if needed
+        if (sessionInvalidatingChanges.length > 0) {
+            response += this.invalidateSessionWithMessage(
+                `${sessionInvalidatingChanges.join(', ')} changed`
+            )
+        }
+
+        await sendResponse(response)
     }
 
     /**

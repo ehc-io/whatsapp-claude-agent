@@ -213,21 +213,23 @@ Valid CLAUDE.md sources: `user` (global ~/.claude/CLAUDE.md), `project` (project
 
 Manage your configuration file directly from WhatsApp. Config files are saved to the current working directory (`config.json`).
 
-| Command            | Description                                        |
-| ------------------ | -------------------------------------------------- |
-| `/config`          | Show current runtime configuration                 |
-| `/config show`     | Same as above                                      |
-| `/config path`     | Show config file location                          |
-| `/config save`     | Save current runtime config to file                |
-| `/config generate` | Generate a config template                         |
-| `/config reload`   | View config file contents (needs restart to apply) |
+| Command            | Description                         |
+| ------------------ | ----------------------------------- |
+| `/config`          | Show current runtime configuration  |
+| `/config show`     | Same as above                       |
+| `/config path`     | Show config file location           |
+| `/config save`     | Save current runtime config to file |
+| `/config generate` | Generate a config template          |
+| `/reload`          | Reload and apply config from disk   |
 
 This allows you to:
 
 - View all current settings with `/config`
 - Save your current runtime configuration to persist it with `/config save`
 - Generate a starter config template with `/config generate`
-- Check what's in your config file with `/config reload`
+- Reload config from disk without restarting with `/reload`
+
+**Session-invalidating properties:** When `/reload` changes `directory`, `model`, `systemPrompt`, or `systemPromptAppend`, the current session is automatically cleared.
 
 ## Session Management
 

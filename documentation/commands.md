@@ -96,7 +96,22 @@ Setting prompt clears session (context changes).
 | `/config path`                         | —                       | Show config file location         |
 | `/config save`                         | —                       | Save to `{directory}/config.json` |
 | `/config generate`, `/config template` | —                       | Generate template                 |
-| `/config reload`                       | —                       | View file contents                |
+| `/reload`                              | `handleReloadCommand()` | Reload & apply config from disk   |
+
+## Session Invalidation
+
+Certain config changes require starting a new session. The following properties invalidate sessions when changed:
+
+| Property             | Description               |
+| -------------------- | ------------------------- |
+| `directory`          | Working directory         |
+| `model`              | Claude model              |
+| `systemPrompt`       | Custom system prompt      |
+| `systemPromptAppend` | System prompt append text |
+
+Defined in `SESSION_INVALIDATING_KEYS` in `src/conversation/manager.ts`.
+
+Commands that change these properties (`/cd`, `/model`, `/prompt`, `/promptappend`, `/reload`) automatically invalidate the session if one is active.
 
 ## Group Mode
 
