@@ -174,14 +174,17 @@ export abstract class ClaudeBackend {
      * Get current agent name
      */
     getAgentName(): string {
-        return this.config.agentName
+        return this.config.agentIdentity.name
     }
 
     /**
      * Set the agent name
      */
     setAgentName(name: string): void {
-        this.config.agentName = name
+        this.config.agentIdentity.name = name
+        if (this.config.agentName !== undefined) {
+            this.config.agentName = name
+        }
         this.logger.info(`Agent name changed to: ${name}`)
     }
 

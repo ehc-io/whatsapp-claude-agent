@@ -6,7 +6,8 @@ import {
     toTitleCase,
     generateDefaultAgentName,
     normalizeAgentName,
-    formatMessageWithAgentName
+    formatMessageWithAgentName,
+    parseAgentTargeting
 } from './agent-name.ts'
 
 describe('getRandomSuperheroName', () => {
@@ -149,28 +150,164 @@ describe('normalizeAgentName', () => {
 })
 
 describe('formatMessageWithAgentName', () => {
-    test('formats message with robot emoji and agent name prefix', () => {
-        const result = formatMessageWithAgentName('My Agent', 'Hello world')
-        expect(result).toBe('[🤖 My Agent] Hello world')
+    const identity = { name: 'Spider Man', host: 'mypc', folder: 'my-project' }
+
+    test('formats message with robot emoji and agent identity prefix followed by newline', () => {
+        const result = formatMessageWithAgentName(identity, 'Hello world')
+        expect(result).toBe('[🤖 Spider Man@mypc my-project/]\nHello world')
     })
 
     test('handles empty message', () => {
-        const result = formatMessageWithAgentName('My Agent', '')
-        expect(result).toBe('[🤖 My Agent] ')
+        const result = formatMessageWithAgentName(identity, '')
+        expect(result).toBe('[🤖 Spider Man@mypc my-project/]\n')
     })
 
     test('handles multiline messages', () => {
-        const result = formatMessageWithAgentName('Agent', 'Line 1\nLine 2\nLine 3')
-        expect(result).toBe('[🤖 Agent] Line 1\nLine 2\nLine 3')
+        const result = formatMessageWithAgentName(identity, 'Line 1\nLine 2\nLine 3')
+        expect(result).toBe('[🤖 Spider Man@mypc my-project/]\nLine 1\nLine 2\nLine 3')
     })
 
     test('handles messages with special characters', () => {
-        const result = formatMessageWithAgentName('Bot', 'Code: `console.log()`')
-        expect(result).toBe('[🤖 Bot] Code: `console.log()`')
+        const result = formatMessageWithAgentName(
+            { name: 'Bot', host: 'server', folder: 'app' },
+            'Code: `console.log()`'
+        )
+        expect(result).toBe('[🤖 Bot@server app/]\nCode: `console.log()`')
     })
 
     test('handles agent names with spaces', () => {
-        const result = formatMessageWithAgentName('My Project Spider Man', 'Hi!')
-        expect(result).toBe('[🤖 My Project Spider Man] Hi!')
+        const result = formatMessageWithAgentName(
+            { name: 'Spider Man', host: 'server01', folder: 'myapp' },
+            'Hi!'
+        )
+        expect(result).toBe('[🤖 Spider Man@server01 myapp/]\nHi!')
+    })
+})
+
+describe('parseAgentTargeting', () => {
+    describe('@mention targeting', () => {
+        test('detects @AgentName (exact match)', () => {
+            const result = parseAgentTargeting('@SpiderMan hello world', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('hello world')
+            expect(result.method).toBe('mention')
+        })
+
+        test('detects @AgentName case-insensitive', () => {
+            const result = parseAgentTargeting('@spiderman hello', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('hello')
+            expect(result.method).toBe('mention')
+        })
+
+        test('detects @Agent Name with spaces in agent name', () => {
+            const result = parseAgentTargeting('@Spider Man hello world', 'Spider Man')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('hello world')
+            expect(result.method).toBe('mention')
+        })
+
+        test('does not match wrong agent name', () => {
+            const result = parseAgentTargeting('@Batman hello', 'SpiderMan')
+            expect(result.isTargeted).toBe(false)
+        })
+    })
+
+    describe('@ai and @agent generic targeting', () => {
+        test('detects @ai', () => {
+            const result = parseAgentTargeting('@ai what is 2+2?', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('what is 2+2?')
+            expect(result.method).toBe('generic')
+        })
+
+        test('detects @AI (case-insensitive)', () => {
+            const result = parseAgentTargeting('@AI help me', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('help me')
+            expect(result.method).toBe('generic')
+        })
+
+        test('detects @agent', () => {
+            const result = parseAgentTargeting('@agent do something', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('do something')
+            expect(result.method).toBe('generic')
+        })
+
+        test('detects @AGENT (case-insensitive)', () => {
+            const result = parseAgentTargeting('@AGENT help', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('help')
+            expect(result.method).toBe('generic')
+        })
+    })
+
+    describe('/ask command targeting', () => {
+        test('detects /ask with message', () => {
+            const result = parseAgentTargeting('/ask what time is it?', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('what time is it?')
+            expect(result.method).toBe('slash')
+        })
+
+        test('detects /ask AgentName with message', () => {
+            const result = parseAgentTargeting('/ask SpiderMan hello there', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('hello there')
+            expect(result.method).toBe('slash')
+        })
+
+        test('detects /ask Agent Name (with spaces) with message', () => {
+            const result = parseAgentTargeting('/ask Spider Man what is up?', 'Spider Man')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('what is up?')
+            expect(result.method).toBe('slash')
+        })
+
+        test('detects /ASK (case-insensitive)', () => {
+            const result = parseAgentTargeting('/ASK help me', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('help me')
+            expect(result.method).toBe('slash')
+        })
+    })
+
+    describe('non-targeted messages', () => {
+        test('returns not targeted for plain messages', () => {
+            const result = parseAgentTargeting('hello world', 'SpiderMan')
+            expect(result.isTargeted).toBe(false)
+            expect(result.cleanMessage).toBe('hello world')
+        })
+
+        test('returns not targeted for wrong @mention', () => {
+            const result = parseAgentTargeting('@someone else', 'SpiderMan')
+            expect(result.isTargeted).toBe(false)
+        })
+
+        test('returns not targeted for @ in middle of message', () => {
+            const result = parseAgentTargeting('email me at test@example.com', 'SpiderMan')
+            expect(result.isTargeted).toBe(false)
+        })
+    })
+
+    describe('edge cases', () => {
+        test('handles empty message after targeting', () => {
+            const result = parseAgentTargeting('@SpiderMan', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('')
+        })
+
+        test('handles whitespace-only message after targeting', () => {
+            const result = parseAgentTargeting('@SpiderMan   ', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('')
+        })
+
+        test('preserves multiline messages', () => {
+            const result = parseAgentTargeting('@ai line1\nline2\nline3', 'SpiderMan')
+            expect(result.isTargeted).toBe(true)
+            expect(result.cleanMessage).toBe('line1\nline2\nline3')
+        })
     })
 })

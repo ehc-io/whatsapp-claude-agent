@@ -3,7 +3,7 @@ import { homedir } from 'os'
 import { resolve, dirname } from 'path'
 import { ConfigSchema, type Config, type SettingSource } from '../types.ts'
 import { resolveModelShorthand } from '../claude/utils.ts'
-import { generateDefaultAgentName, normalizeAgentName } from '../utils/agent-name.ts'
+import { generateAgentIdentity, normalizeAgentName } from '../utils/agent-name.ts'
 
 const CONFIG_FILE_NAME = 'config.json'
 
@@ -159,11 +159,12 @@ export function parseConfig(cliOptions: CLIOptions): Config {
         }
     }
 
-    // Resolve agent name: CLI option > config file > generated default
-    const agentName =
-        normalizeAgentName(cliOptions.agentName) ||
-        normalizeAgentName(fileConfig.agentName) ||
-        generateDefaultAgentName(directory)
+    // Resolve agent name: CLI option > config file > undefined (will generate random)
+    const customAgentName =
+        normalizeAgentName(cliOptions.agentName) || normalizeAgentName(fileConfig.agentName)
+
+    // Generate agent identity with all components
+    const agentIdentity = generateAgentIdentity(directory, customAgentName)
 
     // Build merged config (CLI options override file config)
     const merged = {
@@ -191,7 +192,8 @@ export function parseConfig(cliOptions: CLIOptions): Config {
             : fileConfig.settingSources,
         resumeSessionId: cliOptions.resume || fileConfig.resumeSessionId,
         forkSession: cliOptions.fork ?? fileConfig.forkSession,
-        agentName,
+        agentName: customAgentName, // Keep for config file compatibility
+        agentIdentity,
         // Runtime-only: group join (never from file config)
         joinWhatsAppGroup: cliOptions.joinWhatsappGroup,
         allowAllGroupParticipants: cliOptions.allowAllGroupParticipants

@@ -71,6 +71,8 @@ Options:
   --load-claude-md <sources>     Load CLAUDE.md files (user,project,local)
   --resume <sessionId>           Resume a previous Claude session
   --fork                         Fork the session when resuming (creates new branch)
+  --join-whatsapp-group <url>    Join a WhatsApp group (URL or invite code)
+  --allow-all-group-participants Allow all group members (bypass whitelist)
   -v, --verbose                  Enable verbose logging
   -c, --config <path>            Path to config file
   -h, --help                     Show help
@@ -114,6 +116,12 @@ The examples below use `./whatsapp-claude-agent` as a placeholder. Replace with 
 
 # Resume and fork (create a new branch from the session)
 ./whatsapp-claude-agent -w "+1234567890" --resume <session-id> --fork
+
+# Join a WhatsApp group (group mode)
+./whatsapp-claude-agent -w "+1234567890" --join-whatsapp-group "https://chat.whatsapp.com/ABC123"
+
+# Allow all group participants (bypass whitelist in group)
+./whatsapp-claude-agent -w "+1234567890" --join-whatsapp-group "ABC123" --allow-all-group-participants
 
 # Use a specific model (with shorthand)
 ./whatsapp-claude-agent -w "+1234567890" --model opus
@@ -269,6 +277,44 @@ Forking creates a new conversation branch from an existing session. The original
 ```
 
 After `/fork`, your next message creates a new session branch. The original session is preserved.
+
+## Group Mode
+
+The agent can join a WhatsApp group and respond to messages there. In group mode:
+
+- Agent listens **only** to the specified group (private messages are ignored)
+- Messages must be **targeted** at the agent (see below)
+- Whitelist applies to the **sender** (participant), not the group itself
+- Use `--allow-all-group-participants` to allow any group member to interact
+
+### Targeting the Agent
+
+In group mode, you must explicitly target the agent:
+
+| Format                     | Example                    |
+| -------------------------- | -------------------------- |
+| `@AgentName <message>`     | `@Spider Man what is 2+2?` |
+| `@ai <message>`            | `@ai help me`              |
+| `@agent <message>`         | `@agent do something`      |
+| `/ask <message>`           | `/ask what time is it?`    |
+| `/ask AgentName <message>` | `/ask Spider Man hello`    |
+
+- Agent name matching is case-insensitive
+- Multi-word names work: `@Spider Man hello` or `@spiderman hello`
+- Non-targeted messages are ignored
+
+### Permission Responses
+
+When Claude requests permission for a tool in group mode, responses must also be targeted:
+
+```
+@Spider Man Y     # Allow
+@Spider Man N     # Deny
+@ai Y             # Allow (generic)
+@agent N          # Deny (generic)
+```
+
+In private mode, simple `Y` or `N` responses work directly.
 
 ### Session Commands Summary
 

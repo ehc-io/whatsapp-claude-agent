@@ -1,6 +1,7 @@
 import { basename } from 'path'
 import { hostname } from 'os'
 import { randomSuperhero } from 'superheroes'
+import type { AgentIdentity } from '../types.ts'
 
 /**
  * Get a random superhero name from the superheroes package
@@ -25,19 +26,29 @@ export function toTitleCase(str: string): string {
 }
 
 /**
+ * Generate an agent identity with all components
+ * @param directory - The working directory
+ * @param customName - Optional custom name provided by user
+ */
+export function generateAgentIdentity(directory: string, customName?: string): AgentIdentity {
+    const host = hostname()
+    const folder = basename(directory)
+    const name = customName || toTitleCase(getRandomSuperheroName())
+
+    return {
+        name,
+        host,
+        folder
+    }
+}
+
+/**
  * Generate a default agent name based on the hostname, directory name, and a random superhero
- * Format: "Hostname Directory Name Superhero" (Title Case)
- * Example: "Mypc My Project Spider Man", "Server01 Knowii Voice AI Jarvis"
+ * @deprecated Use generateAgentIdentity instead
  */
 export function generateDefaultAgentName(directory: string): string {
-    const host = hostname()
-    const dirName = basename(directory)
-    const superhero = getRandomSuperheroName()
-    // Convert all parts to title case and combine
-    const titleCaseHost = toTitleCase(host)
-    const titleCaseDirName = toTitleCase(dirName)
-    const titleCaseSuperhero = toTitleCase(superhero)
-    return `${titleCaseHost} ${titleCaseDirName} ${titleCaseSuperhero}`
+    const identity = generateAgentIdentity(directory)
+    return `${toTitleCase(identity.host)} ${toTitleCase(identity.folder)} ${identity.name}`
 }
 
 /**
@@ -52,9 +63,106 @@ export function normalizeAgentName(name: string | undefined): string | undefined
 }
 
 /**
- * Format a message with the agent name prefix
- * Format: "[robot emoji AgentName] message"
+ * Format a message with the agent identity prefix
+ * Format: "[🤖 Name@host folder/]\nmessage"
  */
-export function formatMessageWithAgentName(agentName: string, message: string): string {
-    return `[🤖 ${agentName}] ${message}`
+export function formatMessageWithAgentName(identity: AgentIdentity, message: string): string {
+    return `[🤖 ${identity.name}@${identity.host} ${identity.folder}/]\n${message}`
+}
+
+/**
+ * Get a display string for the agent identity
+ * Format: "Name@host folder/"
+ */
+export function getAgentIdentityDisplay(identity: AgentIdentity): string {
+    return `${identity.name}@${identity.host} ${identity.folder}/`
+}
+
+/**
+ * Result of parsing agent targeting in a message
+ */
+export interface AgentTargetingResult {
+    isTargeted: boolean
+    cleanMessage: string
+    method?: 'mention' | 'generic' | 'slash'
+}
+
+/**
+ * Normalize a name for comparison (lowercase, collapse spaces)
+ */
+function normalizeForMatching(str: string): string {
+    return str.toLowerCase().replace(/\s+/g, '').trim()
+}
+
+/**
+ * Parse a message to check if it targets this agent
+ * Supported formats:
+ * - @AgentName message (mention by name)
+ * - @ai message (generic AI mention)
+ * - @agent message (generic agent mention)
+ * - /ask AgentName message (slash command)
+ * - /ask message (generic ask)
+ *
+ * @returns Object with isTargeted, cleanMessage (without prefix), and method
+ */
+export function parseAgentTargeting(text: string, agentName: string): AgentTargetingResult {
+    const trimmed = text.trim()
+    const normalizedAgentName = normalizeForMatching(agentName)
+
+    // Check for @mention at start of message
+    const mentionMatch = trimmed.match(/^@(\S+)\s*(.*)$/s)
+    if (mentionMatch && mentionMatch[1]) {
+        const mentionTarget = mentionMatch[1]
+        const rest = mentionMatch[2] || ''
+        const normalizedTarget = normalizeForMatching(mentionTarget)
+
+        // Check if it's a generic mention (@ai, @agent)
+        if (normalizedTarget === 'ai' || normalizedTarget === 'agent') {
+            return { isTargeted: true, cleanMessage: rest.trim(), method: 'generic' }
+        }
+
+        // Check if it matches the agent name (with or without spaces)
+        if (normalizedTarget === normalizedAgentName) {
+            return { isTargeted: true, cleanMessage: rest.trim(), method: 'mention' }
+        }
+
+        // Check for multi-word agent names: @Spider Man -> try matching progressively
+        // e.g., "@Spider Man hello" with agentName "Spider Man"
+        const words = trimmed.slice(1).split(/\s+/) // Remove @ and split
+        let accumulated = ''
+        for (let i = 0; i < words.length; i++) {
+            accumulated += (accumulated ? '' : '') + words[i]
+            if (normalizeForMatching(accumulated) === normalizedAgentName) {
+                const remainingMessage = words.slice(i + 1).join(' ')
+                return {
+                    isTargeted: true,
+                    cleanMessage: remainingMessage.trim(),
+                    method: 'mention'
+                }
+            }
+            accumulated += ' '
+        }
+    }
+
+    // Check for /ask command
+    const askMatch = trimmed.match(/^\/ask\s+(.*)$/is)
+    if (askMatch && askMatch[1]) {
+        const afterAsk = askMatch[1].trim()
+
+        // Check if /ask is followed by agent name
+        const words = afterAsk.split(/\s+/)
+        let accumulated = ''
+        for (let i = 0; i < words.length; i++) {
+            accumulated += (accumulated ? ' ' : '') + words[i]
+            if (normalizeForMatching(accumulated) === normalizedAgentName) {
+                const remainingMessage = words.slice(i + 1).join(' ')
+                return { isTargeted: true, cleanMessage: remainingMessage.trim(), method: 'slash' }
+            }
+        }
+
+        // Generic /ask without specific agent name - target this agent
+        return { isTargeted: true, cleanMessage: afterAsk, method: 'slash' }
+    }
+
+    return { isTargeted: false, cleanMessage: trimmed }
 }

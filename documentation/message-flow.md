@@ -25,9 +25,12 @@ Startup announcement (private mode):
 ```
 Now online!
 
-📁 Working directory: `{directory}`
+🤖 Name: *{name}*
+🖥️ Host: {host}
+📁 Directory: {directory}
 🔐 Mode: {mode}
 🧠 Model: {model}
+💬 Chat: Private
 
 Type */help* for available commands.
 ```
@@ -37,12 +40,19 @@ Startup announcement (group mode):
 ```
 Now online!
 
-📁 Working directory: `{directory}`
+🤖 Name: *{name}*
+🖥️ Host: {host}
+📁 Directory: {directory}
 🔐 Mode: {mode}
 🧠 Model: {model}
-👥 Group mode: Listening to this group only
+👥 Chat: Group
 
-Type */help* for available commands.
+*Target me with:*
+• @{name} <message>
+• @ai <message>
+• @agent <message>
+• /ask <message>
+
 Check if online: */agent*
 ```
 
@@ -72,6 +82,10 @@ index.ts event handler
        │
        ▼
 ConversationManager.handleMessage()
+  ├─ Group mode targeting check:
+  │    ├─ parseAgentTargeting(text, agentName)
+  │    ├─ If not targeted (@name, @ai, @agent, /ask) → skip
+  │    └─ Strip targeting prefix from message
   ├─ Check pending permissions → tryResolveFromMessage()
   ├─ Check isCommand() → handleCommand()
   └─ else → processWithClaude()
@@ -129,27 +143,47 @@ permissionCallback(toolName, description, input)
        WhatsApp shows prompt to user
               │
               ▼
-       User responds (Y/YES/ALLOW or N/NO/DENY)
+       User responds:
+         Private mode: Y/YES/ALLOW or N/NO/DENY
+         Group mode: @name Y/N, @ai Y/N, @agent Y/N
               │
               ▼
-       handleMessage() → tryResolveFromMessage()
-         └─ Resolves Promise → SDK continues
+       handleMessage()
+         ├─ Group mode: parseAgentTargeting() first
+         └─ tryResolveFromMessage() on cleaned message
+              │
+              ▼
+       Resolves Promise → SDK continues
 ```
 
-Permission request message format:
+Permission request message (private mode):
 
 ```
 🔐 *Permission Request*
 
 Claude wants to use *{toolName}*:
 
-```
-
+\`\`\`
 {description}
-
-```
+\`\`\`
 
 Reply *Y* to allow or *N* to deny.
+(Auto-denies in 5 minutes)
+```
+
+Permission request message (group mode):
+
+```
+🔐 *Permission Request*
+
+Claude wants to use *{toolName}*:
+
+\`\`\`
+{description}
+\`\`\`
+
+Reply with *@{name} Y* to allow or *@{name} N* to deny.
+(Also works: @ai Y/N, @agent Y/N)
 (Auto-denies in 5 minutes)
 ```
 
@@ -164,7 +198,7 @@ index.ts sendResponse callback
        │
        ▼
 WhatsAppClient.sendMessage()
-  ├─ formatMessageWithAgentName() → "[🤖 AgentName] text"
+  ├─ formatMessageWithAgentName() → "[🤖 Name@host folder/]\ntext"
   ├─ chunkMessage() → splits if > 4000 chars
   └─ sock.sendMessage() for each chunk
 ```

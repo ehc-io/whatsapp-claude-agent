@@ -26,7 +26,9 @@ async function main() {
     const logger = createLogger(config.verbose)
 
     logger.info('Starting WhatsApp Claude Agent...')
-    logger.info(`Agent name: ${config.agentName}`)
+    logger.info(
+        `Agent: ${config.agentIdentity.name}@${config.agentIdentity.host} ${config.agentIdentity.folder}/`
+    )
     logger.info(`Working directory: ${config.directory}`)
     logger.info(`Mode: ${config.mode}`)
     logger.info(`Whitelisted numbers: ${config.whitelist.join(', ')}`)
@@ -43,6 +45,12 @@ async function main() {
     if (config.joinWhatsAppGroup) {
         logger.info(`Group mode enabled: will join group ${config.joinWhatsAppGroup}`)
         logger.info('Agent will listen ONLY to this group and ignore private messages.')
+        if (config.allowAllGroupParticipants) {
+            logger.warn(
+                '⚠️  --allow-all-group-participants is set: whitelist will be ignored. ' +
+                    'Any group member can interact with this agent.'
+            )
+        }
     }
 
     // Create Claude backend
@@ -118,17 +126,25 @@ async function main() {
 
     async function sendStartupAnnouncement() {
         const groupConfig = whatsapp.getGroupConfig()
+        const { name, host, folder } = config.agentIdentity
 
         if (groupConfig) {
             // Group mode: Send announcement to the group
             const announcement = `Now online!
 
-📁 Working directory: \`${config.directory}\`
+🤖 Name: *${name}*
+🖥️ Host: ${host}
+📁 Directory: ${config.directory}
 🔐 Mode: ${config.mode}
 🧠 Model: ${config.model}
-👥 Group mode: Listening to this group only
+👥 Chat: Group
 
-Type */help* for available commands.
+*Target me with:*
+• @${name} <message>
+• @ai <message>
+• @agent <message>
+• /ask <message>
+
 Check if online: */agent*`
 
             try {
@@ -141,9 +157,12 @@ Check if online: */agent*`
             // Private mode: Send announcement to all whitelisted numbers
             const announcement = `Now online!
 
-📁 Working directory: \`${config.directory}\`
+🤖 Name: *${name}*
+🖥️ Host: ${host}
+📁 Directory: ${config.directory}
 🔐 Mode: ${config.mode}
 🧠 Model: ${config.model}
+💬 Chat: Private
 
 Type */help* for available commands.`
 
@@ -182,9 +201,23 @@ Type */help* for available commands.`
     async function handlePermissionRequest(request: PermissionRequest) {
         // Send permission request to the user who initiated the conversation
         // whitelist[0] is guaranteed to exist by ConfigSchema validation (min 1 required)
-        const jid = currentSenderJid || phoneToJid(config.whitelist[0]!)
+        const groupConfig = whatsapp.getGroupConfig()
+        const jid = groupConfig
+            ? groupConfig.groupJid
+            : currentSenderJid || phoneToJid(config.whitelist[0]!)
 
         logger.info(`Sending permission request to ${jid} for tool: ${request.toolName}`)
+
+        const { name } = config.agentIdentity
+        let replyInstructions: string
+        if (groupConfig) {
+            // Group mode: require targeting
+            replyInstructions = `Reply with *@${name} Y* to allow or *@${name} N* to deny.
+(Also works: @ai Y/N, @agent Y/N)`
+        } else {
+            // Private mode: simple Y/N
+            replyInstructions = `Reply *Y* to allow or *N* to deny.`
+        }
 
         const permMessage = `🔐 *Permission Request*
 
@@ -194,7 +227,7 @@ Claude wants to use *${request.toolName}*:
 ${request.description}
 \`\`\`
 
-Reply *Y* to allow or *N* to deny.
+${replyInstructions}
 (Auto-denies in 5 minutes)`
 
         try {

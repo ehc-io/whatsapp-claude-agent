@@ -55,6 +55,13 @@ Specify custom path: `-c, --config <path>`
 Defined in `src/types.ts` via Zod:
 
 ```typescript
+// Agent identity with separate components
+AgentIdentitySchema = z.object({
+    name: z.string(), // The agent's name (superhero name or custom)
+    host: z.string(), // Hostname where agent runs
+    folder: z.string() // Working directory basename
+})
+
 ConfigSchema = z.object({
     directory: z.string().default(process.cwd()),
     mode: PermissionModeSchema.default('default'),
@@ -70,7 +77,8 @@ ConfigSchema = z.object({
     settingSources: z.array(SettingSourceSchema).optional(),
     resumeSessionId: z.string().optional(),
     forkSession: z.boolean().default(false),
-    agentName: z.string(),
+    agentName: z.string().optional(), // Custom name (overrides generated)
+    agentIdentity: AgentIdentitySchema, // Full identity with components
     joinWhatsAppGroup: z.string().optional(),
     allowAllGroupParticipants: z.boolean().default(false)
 })

@@ -70,7 +70,7 @@ src/
 │   └── auth.ts           # Auth state management
 └── utils/
     ├── logger.ts         # Logging utility
-    ├── agent-name.ts     # Agent name generation (hostname+dir+superhero)
+    ├── agent-name.ts     # Agent identity (name, host, folder) generation
     └── phone.ts          # Phone number utilities
 ```
 

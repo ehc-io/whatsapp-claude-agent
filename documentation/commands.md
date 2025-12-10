@@ -103,10 +103,41 @@ Setting prompt clears session (context changes).
 When running with `--join-whatsapp-group`, the agent enters group mode:
 
 - Agent listens ONLY to the specified group (ignores private messages)
-- Messages from whitelisted participants are processed directly
+- Agent only responds to targeted messages (see below)
+- Whitelist applies to sender (participant), not group JID
 - Use `--allow-all-group-participants` to allow all group members (bypasses whitelist)
 
-All standard commands work the same in group mode.
+### Targeting the Agent
+
+In group mode, messages must be explicitly targeted at the agent:
+
+| Format                     | Example                    | Description                       |
+| -------------------------- | -------------------------- | --------------------------------- |
+| `@AgentName <message>`     | `@Spider Man what is 2+2?` | Mention by agent name             |
+| `@ai <message>`            | `@ai help me`              | Generic AI mention                |
+| `@agent <message>`         | `@agent do something`      | Generic agent mention             |
+| `/ask <message>`           | `/ask what time is it?`    | Slash command (targets any agent) |
+| `/ask AgentName <message>` | `/ask Spider Man hello`    | Slash command with specific agent |
+
+Notes:
+
+- Agent name matching is case-insensitive
+- Multi-word names work: `@Spider Man hello` or `@spiderman hello`
+- Non-targeted messages are ignored
+- All standard commands work the same once targeted
+
+### Permission Responses in Group Mode
+
+When Claude requests permission for a tool in group mode, responses must also be targeted:
+
+| Response       | Effect     |
+| -------------- | ---------- |
+| `@name Y`      | Allow      |
+| `@name N`      | Deny       |
+| `@ai Y` / `N`  | Allow/Deny |
+| `@agent Y`/`N` | Allow/Deny |
+
+In private mode, simple `Y` or `N` responses work directly.
 
 ## Adding New Commands
 

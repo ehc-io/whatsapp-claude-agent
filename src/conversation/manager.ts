@@ -23,6 +23,7 @@ import type {
 } from '../types.ts'
 import type { Logger } from '../utils/logger.ts'
 import type { WhatsAppClient } from '../whatsapp/client.ts'
+import { parseAgentTargeting } from '../utils/agent-name.ts'
 
 export class ConversationManager extends EventEmitter {
     private history: ConversationHistory
@@ -67,7 +68,35 @@ export class ConversationManager extends EventEmitter {
         sendResponse: (text: string) => Promise<void>,
         sendTyping: () => Promise<void>
     ): Promise<void> {
-        // Check if this is a permission response
+        // In group mode, check if message is targeted at this agent first
+        const groupConfig = this.whatsappClient?.getGroupConfig()
+        let messageText = message.text
+
+        if (groupConfig && message.isGroupMessage) {
+            const targeting = parseAgentTargeting(message.text, this.config.agentIdentity.name)
+
+            if (!targeting.isTargeted) {
+                // Not targeted at this agent - ignore silently
+                this.logger.debug(
+                    `Group message not targeted at this agent. Use @${this.config.agentIdentity.name}, @ai, @agent, or /ask`
+                )
+                return
+            }
+
+            // Use the cleaned message (without the targeting prefix)
+            messageText = targeting.cleanMessage
+            this.logger.debug(`Message targeted via ${targeting.method}: "${messageText}"`)
+
+            // If message is empty after stripping targeting, ignore
+            if (!messageText.trim()) {
+                return
+            }
+
+            // Update the message object with cleaned text for processing
+            message = { ...message, text: messageText }
+        }
+
+        // Check if this is a permission response (after targeting check for group mode)
         if (this.permissions.pendingCount > 0) {
             const resolved = this.permissions.tryResolveFromMessage(message.text)
             if (resolved) {
@@ -493,9 +522,11 @@ export class ConversationManager extends EventEmitter {
         sendResponse: (text: string) => Promise<void>
     ): Promise<void> {
         if (!args) {
-            // Show current agent name
-            const currentName = this.backend.getAgentName()
-            await sendResponse(`🤖 Agent name: *${currentName}*`)
+            // Show current agent identity
+            const { name, host, folder } = this.config.agentIdentity
+            await sendResponse(
+                `🤖 Agent identity:\n• Name: *${name}*\n• Host: ${host}\n• Folder: ${folder}/`
+            )
             return
         }
 
@@ -505,8 +536,9 @@ export class ConversationManager extends EventEmitter {
             return
         }
 
-        // Change the agent name
+        // Change the agent name (only updates the name component)
         this.backend.setAgentName(newName)
+        this.config.agentIdentity.name = newName
         this.config.agentName = newName
 
         await sendResponse(`✓ Agent name changed to: *${newName}*`)
@@ -652,8 +684,10 @@ export class ConversationManager extends EventEmitter {
 • missedThresholdMins: ${this.config.missedThresholdMins}
 • maxTurns: ${this.config.maxTurns ?? 'unlimited'}
 
-*Agent:*
-• agentName: ${this.config.agentName}
+*Agent Identity:*
+• name: ${this.config.agentIdentity.name}
+• host: ${this.config.agentIdentity.host}
+• folder: ${this.config.agentIdentity.folder}
 • verbose: ${this.config.verbose}
 
 *Prompts & Settings:*
@@ -717,7 +751,22 @@ Use \`/config save\` to save to file.`
     }
 
     private getHelpMessage(): string {
-        return `*Available Commands:*
+        const groupConfig = this.whatsappClient?.getGroupConfig()
+        const { name } = this.config.agentIdentity
+
+        let help = ''
+
+        if (groupConfig) {
+            help += `*Targeting (required in group):*
+@${name} <message> - Target by name
+@ai <message> - Generic AI target
+@agent <message> - Generic agent target
+/ask <message> - Ask command
+
+`
+        }
+
+        help += `*Available Commands:*
 
 *Session & Directory:*
 /agent - Check if agent is online
@@ -766,21 +815,39 @@ Use \`/config save\` to save to file.`
 /config reload - View config file contents
 
 *Valid CLAUDE.md sources:* user, project, local`
+
+        return help
     }
 
     private getAgentInfoMessage(): string {
         const groupConfig = this.whatsappClient?.getGroupConfig()
         const chatMode = groupConfig ? 'Group' : 'Private'
+        const { name, host } = this.config.agentIdentity
 
-        return `*Agent Online*
+        let message = `*Agent Online*
 
-🤖 Name: *${this.config.agentName}*
-📁 Directory: \`${this.config.directory}\`
+🤖 Name: *${name}*
+🖥️ Host: ${host}
+📁 Directory: ${this.config.directory}
 🔐 Mode: ${this.config.mode}
 🧠 Model: ${this.config.model}
-💬 Chat: ${chatMode}
+💬 Chat: ${chatMode}`
+
+        if (groupConfig) {
+            message += `
+
+*Target me with:*
+• @${name} <message>
+• @ai <message>
+• @agent <message>
+• /ask <message>`
+        } else {
+            message += `
 
 Type */help* for available commands.`
+        }
+
+        return message
     }
 
     private getStatusMessage(): string {
@@ -788,6 +855,7 @@ Type */help* for available commands.`
         const sources = this.backend.getSettingSources()
         const sessionId = this.backend.getSessionId()
         const groupConfig = this.whatsappClient?.getGroupConfig()
+        const { name, host } = this.config.agentIdentity
 
         let promptStatus = 'default'
         if (promptConfig.systemPrompt) {
@@ -804,8 +872,9 @@ Type */help* for available commands.`
 
         return `*Agent Status:*
 
-🤖 Agent: *${this.config.agentName}*
-📁 Working directory: \`${this.config.directory}\`
+🤖 Name: *${name}*
+🖥️ Host: ${host}
+📁 Directory: ${this.config.directory}
 🔐 Mode: ${this.config.mode}
 🧠 Model: ${this.config.model}
 🔗 Session: ${sessionStatus}

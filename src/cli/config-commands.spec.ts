@@ -100,6 +100,7 @@ describe('config file utilities', () => {
                 verbose: false,
                 forkSession: false,
                 agentName: 'Test Agent',
+                agentIdentity: { name: 'Test Agent', host: 'testhost', folder: 'testdir' },
                 allowAllGroupParticipants: false
             }
 
@@ -125,6 +126,7 @@ describe('config file utilities', () => {
                 verbose: false,
                 forkSession: false,
                 agentName: 'Test Agent',
+                agentIdentity: { name: 'Test Agent', host: 'testhost', folder: 'testdir' },
                 allowAllGroupParticipants: false
             }
 
@@ -147,6 +149,7 @@ describe('config file utilities', () => {
                 verbose: false,
                 forkSession: false,
                 agentName: 'Test Agent',
+                agentIdentity: { name: 'Test Agent', host: 'testhost', folder: 'testdir' },
                 allowAllGroupParticipants: false
             }
 
@@ -169,6 +172,7 @@ describe('config file utilities', () => {
                 forkSession: true, // runtime-only
                 resumeSessionId: 'some-session-id', // runtime-only
                 agentName: 'Test Agent',
+                agentIdentity: { name: 'Test Agent', host: 'testhost', folder: 'testdir' },
                 allowAllGroupParticipants: true // runtime-only
             }
 
@@ -193,6 +197,7 @@ describe('config file utilities', () => {
                 verbose: false,
                 forkSession: false,
                 agentName: 'Test Agent',
+                agentIdentity: { name: 'Test Agent', host: 'testhost', folder: 'testdir' },
                 allowAllGroupParticipants: false
             }
 

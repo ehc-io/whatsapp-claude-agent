@@ -22,6 +22,15 @@ export const PermissionModeSchema = z.enum([
 // Zod schema for runtime validation - aligns with SDK's SettingSource
 export const SettingSourceSchema = z.enum(['user', 'project', 'local'])
 
+// Agent identity with separate components for display
+export const AgentIdentitySchema = z.object({
+    name: z.string(), // The agent's name (superhero name or custom)
+    host: z.string(), // Hostname where agent runs
+    folder: z.string() // Working directory basename
+})
+
+export type AgentIdentity = z.infer<typeof AgentIdentitySchema>
+
 export const ConfigSchema = z.object({
     directory: z.string().default(process.cwd()),
     mode: PermissionModeSchema.default('default'),
@@ -37,7 +46,8 @@ export const ConfigSchema = z.object({
     settingSources: z.array(SettingSourceSchema).optional(),
     resumeSessionId: z.string().optional(),
     forkSession: z.boolean().default(false),
-    agentName: z.string(), // Will be set with a default value during config parsing
+    agentName: z.string().optional(), // Custom agent name (if set by user)
+    agentIdentity: AgentIdentitySchema, // Full agent identity with components
     joinWhatsAppGroup: z.string().optional(), // Runtime-only: WhatsApp group to join
     allowAllGroupParticipants: z.boolean().default(false) // Runtime-only: bypass whitelist in group mode
 })

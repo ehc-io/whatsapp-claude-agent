@@ -251,8 +251,8 @@ export class WhatsAppClient extends EventEmitter {
             throw new Error('WhatsApp client not ready')
         }
 
-        // Prefix message with agent name
-        const prefixedText = formatMessageWithAgentName(this.config.agentName, text)
+        // Prefix message with agent identity
+        const prefixedText = formatMessageWithAgentName(this.config.agentIdentity, text)
         const chunks = chunkMessage(prefixedText)
 
         for (const chunk of chunks) {
