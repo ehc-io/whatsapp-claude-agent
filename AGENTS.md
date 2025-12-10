@@ -15,6 +15,10 @@ After editing code, always run the formatter to ensure consistent code style:
 bun run format
 ```
 
+## CLI and Config Parity
+
+All CLI options MUST be configurable via the config file. After adding or modifying CLI options, always verify the corresponding config file property exists in `src/types.ts` (ConfigSchema) and is properly merged in `src/cli/config.ts`.
+
 ## Bun Runtime
 
 Default to using Bun instead of Node.js.

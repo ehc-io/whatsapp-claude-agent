@@ -8,6 +8,12 @@ import type { ClaudeBackend } from '../claude/backend.ts'
 import { PermissionManager } from '../claude/permissions.ts'
 import { getModelShorthand } from '../claude/utils.ts'
 import { isCommand, parseCommand } from '../whatsapp/messages.ts'
+import {
+    getDefaultConfigPath,
+    loadConfigFile,
+    saveConfigFile,
+    generateConfigTemplate
+} from '../cli/config.ts'
 import type {
     Config,
     IncomingMessage,
@@ -175,6 +181,10 @@ export class ConversationManager extends EventEmitter {
             case 'agentname':
             case 'agent-name':
                 await this.handleNameCommand(parsed.args, sendResponse)
+                break
+
+            case 'config':
+                await this.handleConfigCommand(parsed.args, sendResponse)
                 break
 
             default:
@@ -530,6 +540,116 @@ export class ConversationManager extends EventEmitter {
         await sendResponse(`✓ CLAUDE.md sources set to: ${requestedSources.join(', ')}`)
     }
 
+    private async handleConfigCommand(
+        args: string,
+        sendResponse: (text: string) => Promise<void>
+    ): Promise<void> {
+        const subcommand = args.trim().toLowerCase()
+        const configPath = getDefaultConfigPath()
+
+        if (!subcommand || subcommand === 'show' || subcommand === 'list') {
+            // Show current configuration
+            await sendResponse(this.getConfigDisplay())
+            return
+        }
+
+        if (subcommand === 'path') {
+            // Show config file path
+            const exists = existsSync(configPath)
+            await sendResponse(
+                `📁 Config file path:\n\`${configPath}\`\n\n${exists ? '✓ File exists' : '⚠️ File does not exist'}`
+            )
+            return
+        }
+
+        if (subcommand === 'save') {
+            // Save current runtime config to file
+            try {
+                const savedPath = saveConfigFile(this.config)
+                await sendResponse(`✓ Configuration saved to:\n\`${savedPath}\``)
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : String(error)
+                await sendResponse(`❌ Failed to save config: ${errorMsg}`)
+            }
+            return
+        }
+
+        if (subcommand === 'generate' || subcommand === 'template') {
+            // Generate a template config
+            const template = generateConfigTemplate(this.config.whitelist)
+            await sendResponse(
+                `*Config template:*\n\n\`\`\`json\n${template}\n\`\`\`\n\nSave this to:\n\`${configPath}\``
+            )
+            return
+        }
+
+        if (subcommand === 'reload') {
+            // Reload config from file (show what would be loaded, but don't actually reload since it requires restart)
+            const fileConfig = loadConfigFile()
+            if (Object.keys(fileConfig).length === 0) {
+                await sendResponse(
+                    `⚠️ No config file found at:\n\`${configPath}\`\n\nUse \`/config generate\` to create a template.`
+                )
+                return
+            }
+
+            // Show what's in the file
+            const configJson = JSON.stringify(fileConfig, null, 2)
+            await sendResponse(
+                `*Config file contents:*\n\n\`\`\`json\n${configJson.slice(0, 1500)}${configJson.length > 1500 ? '\n...' : ''}\n\`\`\`\n\n⚠️ Restart the agent to apply config file changes.`
+            )
+            return
+        }
+
+        // Unknown subcommand
+        await sendResponse(`Unknown config command: ${subcommand}
+
+*Available /config commands:*
+/config - Show current runtime configuration
+/config show - Same as above
+/config path - Show config file location
+/config save - Save current config to file
+/config generate - Generate a config template
+/config reload - View config file contents`)
+    }
+
+    private getConfigDisplay(): string {
+        const promptConfig = this.backend.getSystemPromptConfig()
+        const sources = this.backend.getSettingSources()
+
+        let promptStatus = 'default'
+        if (promptConfig.systemPrompt) {
+            promptStatus = `custom (${promptConfig.systemPrompt.length} chars)`
+        } else if (promptConfig.systemPromptAppend) {
+            promptStatus = `default + append (${promptConfig.systemPromptAppend.length} chars)`
+        }
+
+        const claudeMdStatus = sources?.length ? sources.join(', ') : 'disabled'
+
+        return `*Current Configuration:*
+
+*Core Settings:*
+• whitelist: ${this.config.whitelist.join(', ')}
+• directory: \`${this.config.directory}\`
+• mode: ${this.config.mode}
+• model: ${this.config.model}
+
+*Message Processing:*
+• processMissed: ${this.config.processMissed}
+• missedThresholdMins: ${this.config.missedThresholdMins}
+• maxTurns: ${this.config.maxTurns ?? 'unlimited'}
+
+*Agent:*
+• agentName: ${this.config.agentName}
+• verbose: ${this.config.verbose}
+
+*Prompts & Settings:*
+• systemPrompt: ${promptStatus}
+• settingSources: ${claudeMdStatus}
+
+Use \`/config save\` to save to file.`
+    }
+
     private async processWithClaude(
         message: IncomingMessage,
         sendResponse: (text: string) => Promise<void>,
@@ -623,6 +743,13 @@ export class ConversationManager extends EventEmitter {
 /claudemd - Show current sources
 /claudemd user,project - Load user & project CLAUDE.md
 /claudemd clear - Disable CLAUDE.md loading
+
+*Configuration File:*
+/config - Show current runtime config
+/config path - Show config file location
+/config save - Save current config to file
+/config generate - Generate a config template
+/config reload - View config file contents
 
 *Valid CLAUDE.md sources:* user, project, local`
     }

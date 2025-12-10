@@ -201,6 +201,26 @@ Customize how Claude behaves by modifying the system prompt. See the [Claude Age
 
 Valid CLAUDE.md sources: `user` (global ~/.claude/CLAUDE.md), `project` (project CLAUDE.md), `local` (local settings)
 
+### Configuration File Commands
+
+Manage your configuration file directly from WhatsApp:
+
+| Command            | Description                                        |
+| ------------------ | -------------------------------------------------- |
+| `/config`          | Show current runtime configuration                 |
+| `/config show`     | Same as above                                      |
+| `/config path`     | Show config file location                          |
+| `/config save`     | Save current runtime config to file                |
+| `/config generate` | Generate a config template                         |
+| `/config reload`   | View config file contents (needs restart to apply) |
+
+This allows you to:
+
+- View all current settings with `/config`
+- Save your current runtime configuration to persist it with `/config save`
+- Generate a starter config template with `/config generate`
+- Check what's in your config file with `/config reload`
+
 ## Session Management
 
 The agent supports session persistence, allowing you to resume or fork previous conversations with Claude. Sessions maintain full conversation context, so Claude remembers everything from previous interactions.

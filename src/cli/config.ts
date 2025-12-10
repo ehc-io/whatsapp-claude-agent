@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
-import { resolve } from 'path'
+import { resolve, dirname } from 'path'
 import { ConfigSchema, type Config, type SettingSource } from '../types.ts'
 import { resolveModelShorthand } from '../claude/utils.ts'
 import { generateDefaultAgentName, normalizeAgentName } from '../utils/agent-name.ts'
@@ -14,8 +14,82 @@ function expandPath(path: string): string {
     return resolve(path)
 }
 
-function getDefaultConfigPath(): string {
+export function getDefaultConfigPath(): string {
     return resolve(homedir(), '.whatsapp-claude-agent', CONFIG_FILE_NAME)
+}
+
+/**
+ * Properties that should be saved to config file (excludes runtime-only properties)
+ */
+type SaveableConfigKey =
+    | 'whitelist'
+    | 'directory'
+    | 'mode'
+    | 'sessionPath'
+    | 'model'
+    | 'maxTurns'
+    | 'processMissed'
+    | 'missedThresholdMins'
+    | 'verbose'
+    | 'agentName'
+    | 'systemPrompt'
+    | 'systemPromptAppend'
+    | 'settingSources'
+
+const SAVEABLE_KEYS: SaveableConfigKey[] = [
+    'whitelist',
+    'directory',
+    'mode',
+    'sessionPath',
+    'model',
+    'maxTurns',
+    'processMissed',
+    'missedThresholdMins',
+    'verbose',
+    'agentName',
+    'systemPrompt',
+    'systemPromptAppend',
+    'settingSources'
+]
+
+/**
+ * Save configuration to a file
+ */
+export function saveConfigFile(config: Config, configPath?: string): string {
+    const path = configPath || getDefaultConfigPath()
+    const expandedPath = expandPath(path)
+
+    // Ensure directory exists
+    const dir = dirname(expandedPath)
+    if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true })
+    }
+
+    // Build saveable config (exclude runtime-only properties like resumeSessionId, forkSession)
+    const saveableConfig: Partial<Config> = {}
+    for (const key of SAVEABLE_KEYS) {
+        if (config[key] !== undefined) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ;(saveableConfig as any)[key] = config[key]
+        }
+    }
+
+    writeFileSync(expandedPath, JSON.stringify(saveableConfig, null, 4), 'utf-8')
+    return expandedPath
+}
+
+/**
+ * Generate a template config file content
+ */
+export function generateConfigTemplate(whitelist: string[]): string {
+    const template = {
+        whitelist,
+        directory: process.cwd(),
+        mode: 'default',
+        model: 'sonnet',
+        verbose: false
+    }
+    return JSON.stringify(template, null, 4)
 }
 
 export function loadConfigFile(configPath?: string): Partial<Config> {
