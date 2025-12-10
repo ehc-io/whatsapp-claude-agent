@@ -54,7 +54,6 @@ jobs:
                   bun build src/index.ts \
                     --compile \
                     --minify \
-                    --sourcemap \
                     --define "BUILD_VERSION='\"${{ steps.version.outputs.version }}\"'" \
                     --define "BUILD_DATE='\"${BUILD_DATE}\"'" \
                     --define "BUILD_COMMIT='\"${{ github.sha }}\"'" \
@@ -65,7 +64,6 @@ jobs:
                   bun build src/index.ts \
                     --compile \
                     --minify \
-                    --sourcemap \
                     --define "BUILD_VERSION='\"${{ steps.version.outputs.version }}\"'" \
                     --define "BUILD_DATE='\"${BUILD_DATE}\"'" \
                     --define "BUILD_COMMIT='\"${{ github.sha }}\"'" \
@@ -76,7 +74,6 @@ jobs:
                   bun build src/index.ts \
                     --compile \
                     --minify \
-                    --sourcemap \
                     --define "BUILD_VERSION='\"${{ steps.version.outputs.version }}\"'" \
                     --define "BUILD_DATE='\"${BUILD_DATE}\"'" \
                     --define "BUILD_COMMIT='\"${{ github.sha }}\"'" \
@@ -87,7 +84,6 @@ jobs:
                   bun build src/index.ts \
                     --compile \
                     --minify \
-                    --sourcemap \
                     --define "BUILD_VERSION='\"${{ steps.version.outputs.version }}\"'" \
                     --define "BUILD_DATE='\"${BUILD_DATE}\"'" \
                     --define "BUILD_COMMIT='\"${{ github.sha }}\"'" \
