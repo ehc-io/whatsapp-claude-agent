@@ -34,6 +34,7 @@ type SaveableConfigKey =
     | 'missedThresholdMins'
     | 'verbose'
     | 'agentName'
+    | 'deviceName'
     | 'systemPrompt'
     | 'systemPromptAppend'
     | 'settingSources'
@@ -49,6 +50,7 @@ const SAVEABLE_KEYS: SaveableConfigKey[] = [
     'missedThresholdMins',
     'verbose',
     'agentName',
+    'deviceName',
     'systemPrompt',
     'systemPromptAppend',
     'settingSources'
@@ -95,6 +97,7 @@ export interface ConfigInitOptions {
     missedThresholdMins?: number
     verbose?: boolean
     agentName?: string
+    deviceName?: string
     systemPrompt?: string
     systemPromptAppend?: string
     settingSources?: string[]
@@ -129,6 +132,9 @@ export function generateConfigTemplate(options?: ConfigInitOptions): string {
     }
     if (options?.agentName) {
         template['agentName'] = options.agentName
+    }
+    if (options?.deviceName) {
+        template['deviceName'] = options.deviceName
     }
     if (options?.systemPrompt) {
         template['systemPrompt'] = options.systemPrompt
@@ -182,6 +188,8 @@ export interface CLIOptions {
     resume?: string
     fork?: boolean
     agentName?: string
+    deviceName?: string
+    resetSession?: boolean
     joinWhatsappGroup?: string
     allowAllGroupParticipants?: boolean
 }
@@ -241,6 +249,7 @@ export function parseConfig(cliOptions: CLIOptions): Config {
         forkSession: cliOptions.fork ?? fileConfig.forkSession,
         agentName: customAgentName, // Keep for config file compatibility
         agentIdentity,
+        deviceName: cliOptions.deviceName || fileConfig.deviceName,
         // Runtime-only: group join (never from file config)
         joinWhatsAppGroup: cliOptions.joinWhatsappGroup,
         allowAllGroupParticipants: cliOptions.allowAllGroupParticipants

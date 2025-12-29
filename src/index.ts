@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { rmSync, existsSync, readdirSync } from 'fs'
 import { parseArgs, isConfigSubcommand, runConfigSubcommand } from './cli/commands.ts'
 import { isUpdateFlag, runUpdate } from './cli/update.ts'
 import { createLogger } from './utils/logger.ts'
@@ -21,8 +22,11 @@ async function main() {
 
     // Parse command line arguments
     let config: Config
+    let resetSession: boolean
     try {
-        config = parseArgs(process.argv)
+        const parsed = parseArgs(process.argv)
+        config = parsed.config
+        resetSession = parsed.resetSession
     } catch (error) {
         console.error(error instanceof Error ? error.message : error)
         process.exit(1)
@@ -30,6 +34,28 @@ async function main() {
 
     // Create logger
     const logger = createLogger(config.verbose)
+
+    // Handle --reset-session flag: delete existing session to force re-authentication
+    if (resetSession) {
+        if (existsSync(config.sessionPath)) {
+            logger.info(`Resetting WhatsApp session: clearing ${config.sessionPath}`)
+            try {
+                // Clear directory contents instead of removing directory
+                // This works better with Docker volumes which can't be deleted from inside
+                const files = readdirSync(config.sessionPath)
+                for (const file of files) {
+                    const filePath = `${config.sessionPath}/${file}`
+                    rmSync(filePath, { recursive: true, force: true })
+                }
+                logger.info('Session cleared. You will need to scan the QR code again.')
+            } catch (error) {
+                logger.error(`Failed to clear session: ${error}`)
+                process.exit(1)
+            }
+        } else {
+            logger.info('No existing session found. Will create new session.')
+        }
+    }
 
     logger.info('Starting WhatsApp Claude Agent...')
     logger.info(

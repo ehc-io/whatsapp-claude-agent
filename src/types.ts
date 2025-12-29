@@ -48,6 +48,7 @@ export const ConfigSchema = z.object({
     forkSession: z.boolean().default(false),
     agentName: z.string().optional(), // Custom agent name (if set by user)
     agentIdentity: AgentIdentitySchema, // Full agent identity with components
+    deviceName: z.string().default('WhatsApp-Claude-Agent'), // WhatsApp linked device name
     joinWhatsAppGroup: z.string().optional(), // Runtime-only: WhatsApp group to join
     allowAllGroupParticipants: z.boolean().default(false) // Runtime-only: bypass whitelist in group mode
 })

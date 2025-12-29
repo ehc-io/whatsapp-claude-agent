@@ -1,0 +1,66 @@
+services:
+  whatsapp-claude-agent:
+    build:
+      context: .
+      target: development
+    image: whatsapp-claude-agent:latest
+    container_name: whatsapp-claude-agent
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    environment:
+      # Required: Your Anthropic API key
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Pass config as env vars for proper shell expansion
+      - WHATSAPP_WHITELIST=${WHATSAPP_WHITELIST:-+1234567890}
+      - AGENT_NAME=${AGENT_NAME:-Claude}
+      - DEVICE_NAME=${DEVICE_NAME:-WhatsApp-Claude-Agent}
+    volumes:
+      # Persist WhatsApp session (QR auth)
+      - whatsapp-session:/app/.whatsapp-session
+      # Persist agent config
+      - ./config:/app/config
+      # Workspace for Claude to access files
+      - ./workspace:/app/workspace
+      # Optional: Mount source for development
+      # - .:/app
+    # Use shell form for proper environment variable expansion
+    command: >-
+      --whitelist "$WHATSAPP_WHITELIST"
+      --directory /app/workspace
+      --session /app/.whatsapp-session
+      --agent-name "$AGENT_NAME"
+      --device-name "$DEVICE_NAME"
+  #    --reset-session
+
+  # Production variant (uncomment to use)
+  # whatsapp-claude-agent-prod:
+  #   build:
+  #     context: .
+  #     target: production
+  #   container_name: whatsapp-claude-agent-prod
+  #   restart: unless-stopped
+  #   stdin_open: true
+  #   tty: true
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+  #     - WHATSAPP_WHITELIST=${WHATSAPP_WHITELIST:-+1234567890}
+  #     - AGENT_NAME=${AGENT_NAME:-Claude}
+  #     - DEVICE_NAME=${DEVICE_NAME:-WhatsApp-Claude-Agent}
+  #   volumes:
+  #     - whatsapp-session-prod:/app/.whatsapp-session
+  #     - ./config:/app/config
+  #     - ./workspace:/app/workspace
+  #   command: >-
+  #     --whitelist "$WHATSAPP_WHITELIST"
+  #     --directory /app/workspace
+  #     --session /app/.whatsapp-session
+  #     --agent-name "$AGENT_NAME"
+  #     --device-name "$DEVICE_NAME"
+
+volumes:
+  whatsapp-session:

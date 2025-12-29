@@ -63,7 +63,7 @@ export class WhatsAppClient extends EventEmitter {
             },
             printQRInTerminal: false, // We handle QR ourselves
             logger: baileysLogger,
-            browser: ['WhatsApp-Claude-Agent', 'Desktop', '1.0.0'],
+            browser: [this.config.deviceName, 'Desktop', '1.0.0'],
             generateHighQualityLinkPreview: false,
             syncFullHistory: false
         })
@@ -220,6 +220,13 @@ export class WhatsAppClient extends EventEmitter {
 
             if (!isWhitelisted(msg.from, this.config.whitelist)) {
                 this.logger.warn(`Blocked message from non-whitelisted number: ${msg.from}`)
+                // Provide helpful hint for LID format
+                if (msg.from.endsWith('@lid')) {
+                    const lidId = msg.from.replace('@lid', '')
+                    this.logger.warn(
+                        `Hint: This is a WhatsApp privacy ID (lid). If this is you, add "${lidId}" to your whitelist.`
+                    )
+                }
                 return
             }
         }

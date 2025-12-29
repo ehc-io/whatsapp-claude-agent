@@ -88,6 +88,15 @@ Config Management (without running agent):
             'Agent identity name used to prefix messages (default: auto-generated from hostname + directory + superhero)'
         )
         .option(
+            '--device-name <name>',
+            'WhatsApp linked device name (default: WhatsApp-Claude-Agent)'
+        )
+        .option(
+            '--reset-session',
+            'Delete existing WhatsApp session and force re-authentication via QR code',
+            false
+        )
+        .option(
             '--join-whatsapp-group <url-or-code>',
             'Join and listen to a WhatsApp group (URL: https://chat.whatsapp.com/XXX or code: XXX). When specified, agent listens ONLY to this group, not private messages.'
         )
@@ -125,7 +134,12 @@ export function runConfigSubcommand(args: string[]): never {
     process.exit(0)
 }
 
-export function parseArgs(args: string[]): Config {
+export interface ParsedArgs {
+    config: Config
+    resetSession: boolean
+}
+
+export function parseArgs(args: string[]): ParsedArgs {
     const program = createCLI()
     program.parse(args)
     const options = program.opts<CLIOptions>()
@@ -156,7 +170,10 @@ Run 'whatsapp-claude-agent --help' for more information.
     }
 
     try {
-        return parseConfig(options)
+        return {
+            config: parseConfig(options),
+            resetSession: options.resetSession ?? false
+        }
     } catch (error) {
         if (error instanceof Error) {
             console.error(`Error: ${error.message}`)
