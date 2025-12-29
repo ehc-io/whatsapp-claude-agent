@@ -23,13 +23,13 @@ services:
       # Persist agent config
       - ./config:/app/config
       # Workspace for Claude to access files
-      - ./workspace:/app/workspace
+      - ./workspace:/workspace
       # Optional: Mount source for development
       # - .:/app
     # Use shell form for proper environment variable expansion
     command: >-
       --whitelist "$WHATSAPP_WHITELIST"
-      --directory /app/workspace
+      --directory /workspace
       --session /app/.whatsapp-session
       --agent-name "$AGENT_NAME"
       --device-name "$DEVICE_NAME"
@@ -54,10 +54,10 @@ services:
   #   volumes:
   #     - whatsapp-session-prod:/app/.whatsapp-session
   #     - ./config:/app/config
-  #     - ./workspace:/app/workspace
+  #     - ./workspace:/workspace
   #   command: >-
   #     --whitelist "$WHATSAPP_WHITELIST"
-  #     --directory /app/workspace
+  #     --directory /workspace
   #     --session /app/.whatsapp-session
   #     --agent-name "$AGENT_NAME"
   #     --device-name "$DEVICE_NAME"
