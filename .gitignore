@@ -104,3 +104,6 @@ playwright-report/
 # Debug
 .debug/
 *.heapsnapshot
+workspace/**
+TUTORIAL.md
+.gitignore

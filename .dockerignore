@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (use docker-compose env instead)
+.env
+.env.local
+.env.*.local
+
+# WhatsApp session (mounted as volume)
+.whatsapp-session
+auth_info_baileys
+
+# Config (mounted as volume)
+.whatsapp-claude-agent.json
+config/
+
+# Workspace (mounted as volume)
+workspace/
+
+# Documentation
+*.md
+!README.md
+documentation/
+
+# Tests
+*.test.ts
+__tests__
+
+# Misc
+*.log
+*.tgz
+coverage/
