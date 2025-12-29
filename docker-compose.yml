@@ -8,6 +8,11 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
+    # Required for Chromium sandbox in Playwright
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
     env_file:
       - .env
     environment:
@@ -24,6 +29,9 @@ services:
       - ./config:/app/config
       # Workspace for Claude to access files
       - ./workspace:/workspace
+      # Persist Playwright browsers (auto-copies from image on first run)
+      # To update browsers after rebuild: docker volume rm whatsapp-claude-agent_agent-cache
+      - agent-cache:/home/agent/.cache
       # Optional: Mount source for development
       # - .:/app
     # Use shell form for proper environment variable expansion
@@ -44,6 +52,11 @@ services:
   #   restart: unless-stopped
   #   stdin_open: true
   #   tty: true
+  #   # Required for Chromium sandbox in Playwright
+  #   cap_add:
+  #     - SYS_ADMIN
+  #   security_opt:
+  #     - seccomp:unconfined
   #   env_file:
   #     - .env
   #   environment:
@@ -55,6 +68,7 @@ services:
   #     - whatsapp-session-prod:/app/.whatsapp-session
   #     - ./config:/app/config
   #     - ./workspace:/workspace
+  #     - agent-cache-prod:/home/agent/.cache
   #   command: >-
   #     --whitelist "$WHATSAPP_WHITELIST"
   #     --directory /workspace
@@ -64,3 +78,4 @@ services:
 
 volumes:
   whatsapp-session:
+  agent-cache:
