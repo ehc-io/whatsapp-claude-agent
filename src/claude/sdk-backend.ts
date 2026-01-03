@@ -1,6 +1,7 @@
 import { query as claudeQuery, type PermissionResult } from '@anthropic-ai/claude-agent-sdk'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { execSync } from 'child_process'
+import path from 'path'
 import {
     ClaudeBackend,
     isDestructiveTool,
@@ -9,6 +10,74 @@ import {
 } from './backend.ts'
 import type { Config } from '../types.ts'
 import type { Logger } from '../utils/logger.ts'
+
+/**
+ * MCP Server configuration type
+ */
+interface MCPServerConfig {
+    type?: 'stdio' | 'http' | 'sse'
+    command?: string
+    args?: string[]
+    env?: Record<string, string>
+    url?: string
+    headers?: Record<string, string>
+}
+
+/**
+ * MCP configuration file structure
+ */
+interface MCPConfigFile {
+    mcpServers?: Record<string, MCPServerConfig>
+}
+
+/**
+ * Load MCP server configuration from config files
+ * Checks: project .mcp.json, user ~/.claude.json
+ */
+function loadMCPServers(cwd: string, logger: Logger): Record<string, MCPServerConfig> {
+    const servers: Record<string, MCPServerConfig> = {}
+
+    // 1. Load from project-level .mcp.json (highest priority for project)
+    const projectMcpPath = path.join(cwd, '.mcp.json')
+    if (existsSync(projectMcpPath)) {
+        try {
+            const content = readFileSync(projectMcpPath, 'utf-8')
+            const config: MCPConfigFile = JSON.parse(content)
+            if (config.mcpServers) {
+                Object.assign(servers, config.mcpServers)
+                logger.info(`Loaded MCP servers from ${projectMcpPath}: ${Object.keys(config.mcpServers).join(', ')}`)
+            }
+        } catch (error) {
+            logger.warn(`Failed to load MCP config from ${projectMcpPath}: ${error}`)
+        }
+    }
+
+    // 2. Load from user-level ~/.claude.json (fallback)
+    const userMcpPath = path.join(process.env['HOME'] || '', '.claude.json')
+    if (existsSync(userMcpPath)) {
+        try {
+            const content = readFileSync(userMcpPath, 'utf-8')
+            const config: MCPConfigFile = JSON.parse(content)
+            if (config.mcpServers) {
+                // Only add servers not already defined at project level
+                for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
+                    if (!servers[name]) {
+                        servers[name] = serverConfig
+                        logger.info(`Loaded MCP server '${name}' from ${userMcpPath}`)
+                    }
+                }
+            }
+        } catch (error) {
+            logger.warn(`Failed to load MCP config from ${userMcpPath}: ${error}`)
+        }
+    }
+
+    if (Object.keys(servers).length === 0) {
+        logger.debug('No MCP servers found in config files')
+    }
+
+    return servers
+}
 
 /**
  * Find the Claude Code executable path
@@ -152,15 +221,22 @@ export class SDKBackend extends ClaudeBackend {
                 `System prompt: ${typeof systemPrompt === 'string' ? systemPrompt.slice(0, 200) : JSON.stringify(systemPrompt)}`
             )
 
+            // Load MCP servers from config files
+            const mcpServers = loadMCPServers(this.config.directory, this.logger)
+
             const queryOptions: Parameters<typeof claudeQuery>[0]['options'] = {
                 pathToClaudeCodeExecutable: this.claudeCodePath,
                 cwd: this.config.directory,
                 model: this.config.model,
                 maxTurns: this.config.maxTurns,
                 permissionMode: this.mode,
+                // Required for bypassPermissions mode to work in TypeScript SDK
+                allowDangerouslySkipPermissions: this.mode === 'bypassPermissions',
                 tools: { type: 'preset', preset: 'claude_code' },
                 systemPrompt,
                 settingSources: this.config.settingSources,
+                // Pass MCP servers to the SDK (SDK doesn't auto-load from files)
+                mcpServers: Object.keys(mcpServers).length > 0 ? mcpServers : undefined,
                 canUseTool: async (toolName: string, input: unknown) => {
                     this.logger.info(`>>> canUseTool callback invoked: ${toolName}`)
                     return this.handleToolPermission(toolName, input)

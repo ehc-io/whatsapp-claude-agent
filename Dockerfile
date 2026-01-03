@@ -81,9 +81,39 @@ USER root
 RUN ln -sf /home/agent/.cache/ms-playwright/chromium-*/chrome-linux/chrome /usr/local/bin/chromium 2>/dev/null || true
 USER $USERNAME
 
-# Pre-configure Claude Code with Playwright MCP
+# Pre-configure Claude Code with Playwright MCP and permissions
+# ~/.claude.json - MCP server definitions (user-level)
+# ~/.claude/settings.json - Permission pre-approvals (global scope)
+# Note: "type": "stdio" is required for local process-based MCP servers
 RUN mkdir -p /home/agent/.claude && \
-    echo '{"mcpServers":{"playwright":{"command":"npx","args":["@playwright/mcp","--browser","chromium"]}}}' > /home/agent/.claude.json
+    echo '{\
+  "mcpServers": {\
+    "playwright": {\
+      "type": "stdio",\
+      "command": "npx",\
+      "args": ["@playwright/mcp", "--browser", "chromium"]\
+    }\
+  }\
+}' > /home/agent/.claude.json && \
+    echo '{\
+  "permissions": {\
+    "allow": [\
+      "mcp__*",\
+      "Bash(npx:*)",\
+      "Bash(bun:*)",\
+      "Bash(npm:*)",\
+      "Bash(git:*)",\
+      "Bash(ls:*)",\
+      "Bash(cat:*)",\
+      "Bash(mkdir:*)",\
+      "Bash(rm:*)",\
+      "Bash(cp:*)",\
+      "Bash(mv:*)"\
+    ],\
+    "deny": []\
+  },\
+  "enableAllProjectMcpServers": true\
+}' > /home/agent/.claude/settings.json
 
 # Setup ZSH with Oh My Zsh and plugins for interactive shell usage
 ENV HOME=/home/agent
@@ -125,6 +155,9 @@ COPY --chown=agent:agent . .
 RUN mkdir -p /app/.whatsapp-session /workspace \
     && chown -R agent:agent /app/.whatsapp-session /workspace /app
 
+# Copy and setup entrypoint script (ensures MCP config exists at runtime)
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 USER agent
 
 # Default shell for exec
@@ -132,7 +165,7 @@ SHELL ["/bin/zsh", "-c"]
 ENV SHELL=/bin/zsh
 ENV HOME=/home/agent
 
-ENTRYPOINT ["bun", "run", "src/index.ts"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh", "bun", "run", "src/index.ts"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Production build stage
@@ -160,6 +193,9 @@ COPY --chown=agent:agent package.json ./
 RUN mkdir -p /app/.whatsapp-session /workspace \
     && chown -R agent:agent /app/.whatsapp-session /workspace /app
 
+# Copy and setup entrypoint script (ensures MCP config exists at runtime)
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
 USER agent
 
 # Default shell for exec
@@ -167,5 +203,5 @@ SHELL ["/bin/zsh", "-c"]
 ENV SHELL=/bin/zsh
 ENV HOME=/home/agent
 
-ENTRYPOINT ["bun", "run", "dist/cli.js"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh", "bun", "run", "dist/cli.js"]
 CMD []

@@ -32,6 +32,11 @@ services:
       # Persist Playwright browsers (auto-copies from image on first run)
       # To update browsers after rebuild: docker volume rm whatsapp-claude-agent_agent-cache
       - agent-cache:/home/agent/.cache
+      # Claude Code config is baked into the image with:
+      # - MCP servers: ~/.claude.json (Playwright pre-configured)
+      # - Permissions: ~/.claude/settings.json (mcp__* auto-approved)
+      # Uncomment below to persist/override Claude settings:
+      # - claude-config:/home/agent/.claude
       # Optional: Mount source for development
       # - .:/app
     # Use shell form for proper environment variable expansion
@@ -41,6 +46,7 @@ services:
       --session /app/.whatsapp-session
       --agent-name "$AGENT_NAME"
       --device-name "$DEVICE_NAME"
+      --mode bypassPermissions
   #    --reset-session
 
   # Production variant (uncomment to use)
@@ -75,7 +81,10 @@ services:
   #     --session /app/.whatsapp-session
   #     --agent-name "$AGENT_NAME"
   #     --device-name "$DEVICE_NAME"
+  #     --mode bypassPermissions
 
 volumes:
   whatsapp-session:
   agent-cache:
+  # Uncomment if you want to persist Claude Code settings after container recreation
+  # claude-config:

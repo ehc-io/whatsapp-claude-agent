@@ -83,9 +83,85 @@ src/
 5. **Claude Query**: Added to history → Backend.query() → SDK spawns Claude Code → Response returned → Sent to WhatsApp
 6. **Permission**: Claude requests tool use → PermissionManager queues → User responds via WhatsApp → Resolved
 
+## Docker & MCP Configuration
+
+The Docker image comes pre-configured with Claude Code and Playwright MCP.
+
+### Baked-in Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `/home/agent/.claude.json` | MCP server definitions (user-level, Playwright) |
+| `/home/agent/.claude/settings.json` | Permission pre-approvals (global) |
+| `/workspace/.mcp.json` | MCP server definitions (project-level, created at runtime) |
+
+### Entrypoint Script
+
+The `docker-entrypoint.sh` script runs before the agent starts and ensures:
+- `/workspace/.mcp.json` exists (survives volume mounts)
+- Playwright MCP server is configured with `"type": "stdio"`
+
+### Pre-approved Permissions
+
+```json
+{
+  "permissions": {
+    "allow": ["mcp__*", "Bash(npx:*)", "Bash(bun:*)", "Bash(npm:*)", "Bash(git:*)", ...]
+  },
+  "enableAllProjectMcpServers": true
+}
+```
+
+- `mcp__*` — All MCP server tools auto-approved (no prompts)
+- `enableAllProjectMcpServers` — Project-level `.mcp.json` servers enabled
+- `allowDangerouslySkipPermissions` — SDK-level bypass enabled in code
+
+### How MCP Servers Are Loaded
+
+The Claude Agent SDK does **not** auto-load MCP servers from config files. The `SDKBackend` class explicitly loads and passes them:
+
+1. **Load order** (in `sdk-backend.ts`):
+   - `/workspace/.mcp.json` (project-level, highest priority)
+   - `~/.claude.json` (user-level, fallback)
+
+2. **Passed to SDK** via `mcpServers` option in query
+
+### Adding More MCP Servers
+
+1. **At build time**: Modify `docker-entrypoint.sh` to include additional servers
+2. **At runtime**: Edit `/workspace/.mcp.json` in the container
+3. **Via host mount**: Add servers to `./workspace/.mcp.json` on host before starting
+
+Example `.mcp.json` with multiple servers:
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp", "--browser", "chromium"]
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@anthropic/mcp-server-filesystem", "/workspace"]
+    }
+  }
+}
+```
+
+### Docker Volumes
+
+| Volume | Path | Purpose |
+|--------|------|---------|
+| `whatsapp-session` | `/app/.whatsapp-session` | WhatsApp auth persistence |
+| `agent-cache` | `/home/agent/.cache` | Playwright browsers |
+| `claude-config` (optional) | `/home/agent/.claude` | Override baked-in settings |
+
 ## Key Dependencies
 
 - `@anthropic-ai/claude-agent-sdk`: Claude Code integration
+- `@playwright/mcp`: Browser automation via MCP
 - `baileys`: WhatsApp Web protocol (unofficial)
 - `commander`: CLI parsing
 - `zod`: Runtime validation
