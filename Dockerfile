@@ -84,14 +84,14 @@ USER $USERNAME
 # Pre-configure Claude Code with Playwright MCP and permissions
 # ~/.claude.json - MCP server definitions (user-level)
 # ~/.claude/settings.json - Permission pre-approvals (global scope)
-# Note: "type": "stdio" is required for local process-based MCP servers
+# CRITICAL FLAGS for Docker: --headless (no GUI), --no-sandbox (root user)
 RUN mkdir -p /home/agent/.claude && \
     echo '{\
   "mcpServers": {\
     "playwright": {\
       "type": "stdio",\
       "command": "npx",\
-      "args": ["@playwright/mcp", "--browser", "chromium"]\
+      "args": ["@playwright/mcp", "--browser", "chromium", "--headless", "--no-sandbox"]\
     }\
   }\
 }' > /home/agent/.claude.json && \

@@ -332,6 +332,11 @@ export class SDKBackend extends ClaudeBackend {
                 this.logger.debug(`Stack trace: ${error.stack}`)
             }
 
+            // Log tools used before error for debugging
+            if (toolsUsed.length > 0) {
+                this.logger.error(`Tools used before error: ${toolsUsed.join(', ')}`)
+            }
+
             // Check if this is a session resume failure (process exited with code 1)
             // This often happens when trying to resume a session with a different cwd
             if (errorMessage.includes('process exited with code') && this.currentSessionId) {
@@ -348,8 +353,33 @@ export class SDKBackend extends ClaudeBackend {
                 }
             }
 
+            // Handle SIGTERM - typically means process was killed (timeout, OOM, crash)
+            if (errorMessage.includes('SIGTERM')) {
+                this.logger.error('Process terminated by SIGTERM. Possible causes:')
+                this.logger.error('  - MCP server crashed (check --headless and --no-sandbox flags)')
+                this.logger.error('  - Out of memory (try adding ipc: host to docker-compose)')
+                this.logger.error('  - Operation timeout')
+                this.logger.error(`  - Last tool attempted: ${toolsUsed[toolsUsed.length - 1] || 'unknown'}`)
+                return {
+                    text: responseText || '',
+                    error: `Process terminated (SIGTERM). Last tool: ${toolsUsed[toolsUsed.length - 1] || 'unknown'}. ` +
+                        'This may be caused by browser crash, timeout, or memory issues. ' +
+                        'Check that Playwright MCP has --headless and --no-sandbox flags.'
+                }
+            }
+
+            // Handle SIGSEGV - segmentation fault (often sandbox-related)
+            if (errorMessage.includes('SIGSEGV')) {
+                this.logger.error('Process crashed with SIGSEGV (segmentation fault)')
+                this.logger.error('  - This is often caused by missing --no-sandbox flag')
+                return {
+                    text: responseText || '',
+                    error: 'Browser crashed (SIGSEGV). Ensure Playwright MCP has --no-sandbox flag.'
+                }
+            }
+
             return {
-                text: '',
+                text: responseText || '',
                 error: errorMessage
             }
         }

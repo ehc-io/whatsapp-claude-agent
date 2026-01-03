@@ -8,11 +8,13 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
-    # Required for Chromium sandbox in Playwright
+    # Required for Chromium/Playwright in containers
     cap_add:
       - SYS_ADMIN
     security_opt:
       - seccomp:unconfined
+    # Prevents shared memory issues with Chromium (avoids crashes/hangs)
+    ipc: host
     env_file:
       - .env
     environment:
