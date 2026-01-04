@@ -12,13 +12,15 @@ import type { Config } from '../types.ts'
 import type { Logger } from '../utils/logger.ts'
 
 /**
- * MCP Server configuration type
+ * MCP Server configuration type (supports stdio, http, and sse transports)
  */
 interface MCPServerConfig {
     type?: 'stdio' | 'http' | 'sse'
+    // Stdio transport options
     command?: string
     args?: string[]
     env?: Record<string, string>
+    // HTTP/SSE transport options
     url?: string
     headers?: Record<string, string>
 }
@@ -33,6 +35,7 @@ interface MCPConfigFile {
 /**
  * Load MCP server configuration from config files
  * Checks: project .mcp.json, user ~/.claude.json
+ * Supports both stdio and SSE/HTTP transports
  */
 function loadMCPServers(cwd: string, logger: Logger): Record<string, MCPServerConfig> {
     const servers: Record<string, MCPServerConfig> = {}
@@ -44,8 +47,15 @@ function loadMCPServers(cwd: string, logger: Logger): Record<string, MCPServerCo
             const content = readFileSync(projectMcpPath, 'utf-8')
             const config: MCPConfigFile = JSON.parse(content)
             if (config.mcpServers) {
-                Object.assign(servers, config.mcpServers)
-                logger.info(`Loaded MCP servers from ${projectMcpPath}: ${Object.keys(config.mcpServers).join(', ')}`)
+                for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
+                    servers[name] = serverConfig
+                    const transport = serverConfig.type || 'stdio'
+                    if (transport === 'sse' || transport === 'http') {
+                        logger.info(`Loaded MCP server '${name}' (${transport}) from ${projectMcpPath}: ${serverConfig.url}`)
+                    } else {
+                        logger.info(`Loaded MCP server '${name}' (${transport}) from ${projectMcpPath}`)
+                    }
+                }
             }
         } catch (error) {
             logger.warn(`Failed to load MCP config from ${projectMcpPath}: ${error}`)
@@ -63,7 +73,8 @@ function loadMCPServers(cwd: string, logger: Logger): Record<string, MCPServerCo
                 for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
                     if (!servers[name]) {
                         servers[name] = serverConfig
-                        logger.info(`Loaded MCP server '${name}' from ${userMcpPath}`)
+                        const transport = serverConfig.type || 'stdio'
+                        logger.info(`Loaded MCP server '${name}' (${transport}) from ${userMcpPath}`)
                     }
                 }
             }
@@ -74,6 +85,16 @@ function loadMCPServers(cwd: string, logger: Logger): Record<string, MCPServerCo
 
     if (Object.keys(servers).length === 0) {
         logger.debug('No MCP servers found in config files')
+    } else {
+        // Log summary of transport types
+        const sseServers = Object.entries(servers).filter(([, cfg]) => cfg.type === 'sse' || cfg.type === 'http')
+        const stdioServers = Object.entries(servers).filter(([, cfg]) => !cfg.type || cfg.type === 'stdio')
+        if (sseServers.length > 0) {
+            logger.info(`SSE/HTTP MCP servers (persistent): ${sseServers.map(([n]) => n).join(', ')}`)
+        }
+        if (stdioServers.length > 0) {
+            logger.debug(`Stdio MCP servers: ${stdioServers.map(([n]) => n).join(', ')}`)
+        }
     }
 
     return servers

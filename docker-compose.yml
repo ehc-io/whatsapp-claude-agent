@@ -1,4 +1,39 @@
 services:
+  # Playwright MCP server - persistent HTTP service for browser automation
+  playwright-mcp:
+    image: mcr.microsoft.com/playwright:v1.49.1-noble
+    container_name: playwright-mcp
+    restart: unless-stopped
+    # Required for Chromium in containers
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    ipc: host
+    volumes:
+      # Share workspace for screenshots/downloads
+      - ./workspace:/workspace
+    command: >-
+      npx -y @playwright/mcp@latest
+      --browser chromium
+      --headless
+      --no-sandbox
+      --port 3000
+      --host 0.0.0.0
+      --allowed-hosts '*'
+      --timeout-action 30000
+      --timeout-navigation 60000
+      --output-dir /workspace
+      --viewport-size 1280x720
+    healthcheck:
+      # Server returns HTTP 400 on / which is expected - just verify it's listening
+      # Using --fail-with-body to get exit 0 on any response (including 4xx)
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/ | grep -qE '^[0-9]+$'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
   whatsapp-claude-agent:
     build:
       context: .
@@ -8,7 +43,10 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
-    # Required for Chromium/Playwright in containers
+    depends_on:
+      playwright-mcp:
+        condition: service_healthy
+    # Required for Chromium/Playwright in containers (for local fallback)
     cap_add:
       - SYS_ADMIN
     security_opt:
@@ -24,6 +62,8 @@ services:
       - WHATSAPP_WHITELIST=${WHATSAPP_WHITELIST:-+1234567890}
       - AGENT_NAME=${AGENT_NAME:-Claude}
       - DEVICE_NAME=${DEVICE_NAME:-WhatsApp-Claude-Agent}
+      # Playwright MCP server URL (sidecar service)
+      - PLAYWRIGHT_MCP_URL=http://playwright-mcp:3000
     volumes:
       # Persist WhatsApp session (QR auth)
       - whatsapp-session:/app/.whatsapp-session

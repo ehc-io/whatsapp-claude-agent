@@ -85,21 +85,45 @@ src/
 
 ## Docker & MCP Configuration
 
-The Docker image comes pre-configured with Claude Code and Playwright MCP.
+The Docker setup uses a **sidecar architecture** for Playwright MCP to maintain persistent browser sessions.
 
-### Baked-in Configuration Files
+### Architecture
+
+```
+┌─────────────────────────┐     ┌─────────────────────────┐
+│  whatsapp-claude-agent  │────▶│     playwright-mcp      │
+│     (main service)      │ SSE │   (sidecar service)     │
+│                         │◀────│   - Chromium browser    │
+└─────────────────────────┘     │   - Persistent state    │
+                                └─────────────────────────┘
+```
+
+### Why Sidecar?
+
+The Claude Agent SDK spawns **new processes for each query** with stdio MCP servers. This causes browser state to be lost between tool calls. The sidecar runs Playwright MCP as a persistent HTTP/SSE service, maintaining browser sessions across multiple tool calls.
+
+### Configuration Files
 
 | File | Purpose |
 |------|---------|
-| `/home/agent/.claude.json` | MCP server definitions (user-level, Playwright) |
-| `/home/agent/.claude/settings.json` | Permission pre-approvals (global) |
-| `/workspace/.mcp.json` | MCP server definitions (project-level, created at runtime) |
+| `/home/agent/.claude.json` | User-level MCP config (fallback) |
+| `/home/agent/.claude/settings.json` | Permission pre-approvals |
+| `/workspace/.mcp.json` | Project-level MCP config (SSE transport) |
+
+### MCP Transport Types
+
+| Transport | Persistence | Use Case |
+|-----------|-------------|----------|
+| `stdio` | None (new process per query) | Stateless tools |
+| `sse` | Persistent connection | Stateful tools (browsers) |
+| `http` | Per-request | API-based tools |
 
 ### Entrypoint Script
 
-The `docker-entrypoint.sh` script runs before the agent starts and ensures:
-- `/workspace/.mcp.json` exists (survives volume mounts)
-- Playwright MCP server is configured with `"type": "stdio"`
+The `docker-entrypoint.sh` script:
+1. Configures MCP to use SSE transport to the sidecar
+2. Waits for the Playwright MCP sidecar to be healthy
+3. Falls back to stdio if sidecar unavailable
 
 ### Pre-approved Permissions
 
@@ -112,35 +136,36 @@ The `docker-entrypoint.sh` script runs before the agent starts and ensures:
 }
 ```
 
-- `mcp__*` — All MCP server tools auto-approved (no prompts)
-- `enableAllProjectMcpServers` — Project-level `.mcp.json` servers enabled
-- `allowDangerouslySkipPermissions` — SDK-level bypass enabled in code
-
 ### How MCP Servers Are Loaded
 
-The Claude Agent SDK does **not** auto-load MCP servers from config files. The `SDKBackend` class explicitly loads and passes them:
+The `SDKBackend` class loads MCP servers from config files and passes them to the SDK:
 
-1. **Load order** (in `sdk-backend.ts`):
-   - `/workspace/.mcp.json` (project-level, highest priority)
+1. **Load order**:
+   - `/workspace/.mcp.json` (project-level, priority)
    - `~/.claude.json` (user-level, fallback)
 
-2. **Passed to SDK** via `mcpServers` option in query
+2. **Supports both transports**:
+   - SSE/HTTP servers connect to URLs
+   - Stdio servers spawn subprocesses
 
 ### Adding More MCP Servers
 
-1. **At build time**: Modify `docker-entrypoint.sh` to include additional servers
-2. **At runtime**: Edit `/workspace/.mcp.json` in the container
-3. **Via host mount**: Add servers to `./workspace/.mcp.json` on host before starting
-
-Example `.mcp.json` with multiple servers:
+**SSE/HTTP server** (persistent, recommended for stateful tools):
 ```json
 {
   "mcpServers": {
-    "playwright": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["@playwright/mcp", "--browser", "chromium"]
-    },
+    "my-server": {
+      "type": "sse",
+      "url": "http://my-server:3000/sse"
+    }
+  }
+}
+```
+
+**Stdio server** (spawned per query, for stateless tools):
+```json
+{
+  "mcpServers": {
     "filesystem": {
       "type": "stdio",
       "command": "npx",
