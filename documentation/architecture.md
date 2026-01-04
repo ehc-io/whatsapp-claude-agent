@@ -102,6 +102,22 @@ The Docker setup uses a **sidecar architecture** for Playwright MCP to maintain 
 
 The Claude Agent SDK spawns **new processes for each query** with stdio MCP servers. This causes browser state to be lost between tool calls. The sidecar runs Playwright MCP as a persistent HTTP/SSE service, maintaining browser sessions across multiple tool calls.
 
+### Critical Playwright MCP Flags
+
+The Playwright MCP sidecar requires specific flags for Docker:
+
+```bash
+npx @playwright/mcp \
+  --browser chromium \
+  --headless \           # Required: no GUI in containers
+  --no-sandbox \         # Required: running as non-root
+  --host 0.0.0.0 \       # Bind to all interfaces
+  --allowed-hosts '*' \  # Allow cross-container connections
+  --port 3000
+```
+
+**`--allowed-hosts '*'`** is critical - without it, Playwright MCP rejects connections from other containers with "Access is only allowed at localhost".
+
 ### Configuration Files
 
 | File | Purpose |

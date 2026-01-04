@@ -84,6 +84,47 @@ chmod +x whatsapp-claude-agent
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) for instructions on building from source.
 
+### Docker Deployment
+
+Run the agent in Docker with Playwright MCP for browser automation:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/dsebastien/whatsapp-claude-agent.git
+cd whatsapp-claude-agent
+
+# 2. Create .env file with your settings
+cat > .env << 'EOF'
+ANTHROPIC_API_KEY=your-api-key
+WHATSAPP_WHITELIST=+1234567890
+AGENT_NAME=Claude
+DEVICE_NAME=WhatsApp-Claude-Agent
+EOF
+
+# 3. Start the containers
+docker compose up -d
+
+# 4. View logs and scan QR code
+docker logs -f whatsapp-claude-agent
+```
+
+The Docker setup includes:
+- **Playwright MCP sidecar**: Persistent browser for web automation (screenshots, scraping, etc.)
+- **Pre-configured permissions**: MCP tools auto-approved (`mcp__*`)
+- **Session persistence**: WhatsApp auth saved across restarts
+- **Non-root user**: Runs as `agent` user for security
+
+Environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ANTHROPIC_API_KEY` | Your Anthropic API key | Required |
+| `WHATSAPP_WHITELIST` | Comma-separated phone numbers | Required |
+| `AGENT_NAME` | Agent display name | `Claude` |
+| `DEVICE_NAME` | WhatsApp device name | `WhatsApp-Claude-Agent` |
+
+See [documentation/architecture.md](documentation/architecture.md) for details on the sidecar architecture and MCP configuration.
+
 ## Usage
 
 ```bash
